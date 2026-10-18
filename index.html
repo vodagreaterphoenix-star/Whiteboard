@@ -1134,16 +1134,16 @@ details.hsec{scroll-margin-top:8px;}
 
 <!-- ========================= BOTTOM NAV ========================= -->
 <nav class="bottom">
-  <button class="navbtn active" onclick="switchView('board')">
+  <button class="navbtn active" data-view="board" onclick="switchView('board')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
     <span>Board</span>
   </button>
-  <button class="navbtn" onclick="switchView('map')">
+  <button class="navbtn" data-view="map" onclick="switchView('map')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
     <span>Map</span>
   </button>
   <div class="nav-spacer"></div>
-  <button class="navbtn" onclick="switchView('team')">
+  <button class="navbtn" data-view="team" onclick="switchView('team')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     <span>Team</span>
   </button>
@@ -2059,7 +2059,27 @@ function mapStyleUrl(isDark){
   return new URL(isDark ? MAP_CFG.STYLE_DARK : MAP_CFG.STYLE_LIGHT, window.location.href).href;
 }
 
+/* The vector styles live in the tracker's repo. If they haven't been
+   copied here, MapLibre loads a style that 404s and paints nothing —
+   which looks exactly like a broken map. Checked once on load, so a
+   missing file falls back to plain tiles rather than a blank canvas. */
+let mapStylesPresent = null;
+async function mapCheckStyles(){
+  if(mapStylesPresent !== null) return mapStylesPresent;
+  try{
+    const res = await fetch(mapStyleUrl(true), { method:'GET' });
+    mapStylesPresent = res.ok;
+    if(!res.ok) console.warn('map style missing — using raster tiles');
+  }catch(e){
+    mapStylesPresent = false;
+  }
+  return mapStylesPresent;
+}
+
 function mapMakeBaseLayer(isDark){
+  if(mapStylesPresent === false){
+    return L.tileLayer(MAP_CFG.TILE_URL, { attribution:MAP_CFG.TILE_ATTR, maxZoom:19 });
+  }
   if(window.maplibregl && L.maplibreGL){
     const layer = L.maplibreGL({
       style: mapStyleUrl(isDark),
@@ -2251,6 +2271,7 @@ function shopAddress(){
 async function renderMap(){
   const canvas = document.getElementById('mapCanvas');
   if(!canvas) return;
+  await mapCheckStyles();
   if(!await mapLoadLeaflet()){
     canvas.classList.add('map-failed');
     canvas.textContent = 'The map library could not be loaded. Check your connection, then tap Refresh.';
