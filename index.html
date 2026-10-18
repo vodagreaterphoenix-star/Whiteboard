@@ -1088,10 +1088,7 @@ details.hsec{scroll-margin-top:8px;}
 
   <!-- ========================= BOARD ========================= -->
   <div class="view active" id="view-board">
-    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
-      <span>Jobs</span>
-      <button class="export-btn" onclick="openNewJob()">+ New job</button>
-    </div>
+    <div class="section-title">Jobs</div>
     <div class="chip-row" id="stageChips"></div>
     <input id="jobSearch" placeholder="Search name, address, claim…" style="width:100%;box-sizing:border-box;padding:10px 13px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;margin-bottom:10px;" oninput="renderBoard()">
     <div id="boardList"></div>
@@ -1101,6 +1098,14 @@ details.hsec{scroll-margin-top:8px;}
   <div class="view" id="view-map">
     <div class="section-title">Job map</div>
     <div class="map-toolbar">
+      <button class="map-btn" id="mapLocateBtn" onclick="mapLocateMe()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+        My location
+      </button>
+      <button class="map-btn" onclick="mapGoHome()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+        Shop
+      </button>
       <button class="map-btn" onclick="wbFitAll()">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/></svg>
         Fit all
@@ -1111,10 +1116,11 @@ details.hsec{scroll-margin-top:8px;}
       </button>
       <span class="map-count" id="mapCount"></span>
     </div>
+    <div class="chip-row" id="mapStageChips"></div>
     <div class="map-warn" id="mapWarn" style="display:none;"></div>
     <div id="mapCanvas"></div>
-    <div class="hint">Pins are coloured by stage. Tap one for contact details and directions. Two fingers to pan and zoom on a phone.</div>
-    <div id="mapUnplotted"></div>
+    <div class="map-unplotted" id="mapNearest"></div>
+    <div class="hint">Pins are coloured by the stage the job is in. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone.</div>
   </div>
 
   <!-- ========================= TEAM ========================= -->
@@ -1136,6 +1142,7 @@ details.hsec{scroll-margin-top:8px;}
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
     <span>Map</span>
   </button>
+  <div class="nav-spacer"></div>
   <button class="navbtn" onclick="switchView('team')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     <span>Team</span>
@@ -1144,6 +1151,12 @@ details.hsec{scroll-margin-top:8px;}
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v8H3zM14 10h4l3 3v2h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17.5" cy="18" r="1.6"/></svg>
     <span>Tracker</span>
   </a>
+  <!-- Centre action, same shape as the tracker's Scan button. Creating a
+       job is the thing you're most often here to do. -->
+  <button class="navbtn scanbtn" onclick="openNewJob()">
+    <div class="scanwrap"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+    New job
+  </button>
 </nav>
 
 <!-- ========================= JOB DETAIL ========================= -->
@@ -1258,12 +1271,28 @@ const CONFIG = {
 };
 
 const MAP_CFG = {
-  LEAFLET_JS:  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+  DEFAULT_CENTER: [33.4484, -112.0740],   // downtown Phoenix, before pins load
+  DEFAULT_ZOOM: 10,
   LEAFLET_CSS: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css',
+  LEAFLET_JS:  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js',
+  /* Map DATA comes from OpenFreeMap: free, open-source, no API key, no
+     account, no request limit. The LOOK comes from our own two style files
+     in this repo — gta-dark.json and gta-light.json — which you can edit
+     directly. Colours there are commented in the "voda:palette" block. */
+  STYLE_DARK:  'gta-dark.json',
+  STYLE_LIGHT: 'gta-light.json',
+  MAPLIBRE_JS:  'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js',
+  MAPLIBRE_CSS: 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css',
+  MAPLIBRE_LEAFLET: 'https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js',
+  TILE_ATTR: '&copy; OpenFreeMap &copy; OpenMapTiles, data &copy; OpenStreetMap contributors',
+  // Kept as an emergency fallback if MapLibre can't load.
+  TILE_URL: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  // Free address lookup. Fair-use is 1 request/second, so we wait 1.2s
+  // between them. Results are cached in the Sheet and never looked up twice.
   GEOCODE_URL: 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=',
-  GEOCODE_DELAY_MS: 1100,
-  DEFAULT_CENTER: [33.4484, -112.0740],
-  DEFAULT_ZOOM: 10
+  GEOCODE_DELAY_MS: 1200,
+  // Turns a point on the map back into a street address.
+  REVERSE_URL: 'https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&addressdetails=1&'
 };
 
 /* Stages a job moves through. Order matters — it's the order shown, and
@@ -1322,7 +1351,13 @@ async function loadData(quiet){
     inventory  = data.inventory  || [];
     activityLog= data.activity   || [];
     whiteboard = data.whiteboard || [];
-    (data.geocache || []).forEach(g => { if(g.address) geocache[g.address] = {lat:g.lat, lon:g.lon}; });
+    backendSupportsGeocache = data.geocache !== undefined;
+    geocache = {};
+    (data.geocache || []).forEach(r=>{
+      if(!r || !r.address) return;
+      geocache[r.address] = (r.lat==='' || r.lat===null || r.lat===undefined)
+        ? null : { lat: parseFloat(r.lat), lon: parseFloat(r.lon) };
+    });
     (data.settings || []).forEach(r => { if(r.key) appSettings[r.key] = r.value; });
 
     if(data.whiteboard === undefined){
@@ -1350,6 +1385,10 @@ async function saveWhiteboard(){
     return false;
   }
 }
+
+/* The tracker's map helpers expect these two names. */
+function visibleInventory(){ return inventory.filter(i=>!i.deletedAt); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function renderAll(){
   renderStats();
@@ -1469,7 +1508,6 @@ function fmtDate(s){
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
 
-function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function initials(name){
   const parts = name.trim().split(/\s+/);
@@ -1961,97 +1999,330 @@ async function createJob(){
 }
 
 
-/* ---- the map -------------------------------------------------------
-   Deliberately lighter than the tracker's. Pins are jobs rather than
-   equipment, coloured by stage, and tapping one gives contact details and
-   directions rather than an asset list. Lookups reuse the same shared
-   geocache, so an address already resolved in the tracker is instant
-   here, and a pin placed in either app shows in both.
+/* ---- the map ------------------------------------------------------
+   The tracker's map engine, verbatim: MapLibre vector styles from the
+   same gta-dark.json / gta-light.json, two-finger gestures, My location
+   with nearest-first, and the shared geocache — so a pin placed in
+   either app shows in both.
+
+   What differs is what a pin MEANS. In the tracker a pin is equipment;
+   here it's a job, coloured by the stage it's in, and its popup carries
+   the contact details rather than an asset list.
    ------------------------------------------------------------------ */
-let mapObj = null, mapMarkers = null, mapLastFitKey = '', mapLoaded = false;
+let mapObj = null, mapMarkers = null, mapMeMarker = null;
+let mapLeafletPromise = null, mapGeocoding = false, mapFirstOpen = true;
+let mapLastFitKey = '';
+let mapTileLayer = null, mapTileIsDark = null;
+let myPosition = null;
+let backendSupportsGeocache = true;
+
+function appIsDark(){
+  return document.documentElement.getAttribute('data-theme')==='dark';
+}
 
 function mapAddCss(href){
-  if(document.querySelector(`link[href="${href}"]`)) return;
   const l = document.createElement('link'); l.rel='stylesheet'; l.href=href;
   document.head.appendChild(l);
 }
+
 function mapAddScript(src){
   return new Promise(res=>{
-    if(document.querySelector(`script[src="${src}"]`)) return res(true);
-    const s=document.createElement('script'); s.src=src;
-    s.onload=()=>res(true); s.onerror=()=>res(false);
-    document.head.appendChild(s);
+    const t = document.createElement('script');
+    t.src = src; t.onload = ()=>res(true); t.onerror = ()=>res(false);
+    document.head.appendChild(t);
   });
 }
-async function mapLoad(){
-  if(mapLoaded) return true;
-  mapAddCss(MAP_CFG.LEAFLET_CSS);
-  mapLoaded = await mapAddScript(MAP_CFG.LEAFLET_JS);
-  return mapLoaded;
+
+function mapLoadLeaflet(){
+  if(mapLeafletPromise) return mapLeafletPromise;
+  mapLeafletPromise = (async ()=>{
+    if(!window.L){
+      mapAddCss(MAP_CFG.LEAFLET_CSS);
+      if(!await mapAddScript(MAP_CFG.LEAFLET_JS)) return false;
+    }
+    if(!window.maplibregl){
+      mapAddCss(MAP_CFG.MAPLIBRE_CSS);
+      await mapAddScript(MAP_CFG.MAPLIBRE_JS);
+    }
+    if(window.maplibregl && !(window.L && L.maplibreGL)){
+      await mapAddScript(MAP_CFG.MAPLIBRE_LEAFLET);
+    }
+    return !!window.L;
+  })();
+  return mapLeafletPromise;
+}
+
+function mapStyleUrl(isDark){
+  // Resolve against the page, so it works whether the app is served from the
+  // repo root or a subfolder, and add a cache-buster tied to the style name
+  // so an edited style file is picked up rather than served from cache.
+  return new URL(isDark ? MAP_CFG.STYLE_DARK : MAP_CFG.STYLE_LIGHT, window.location.href).href;
+}
+
+function mapMakeBaseLayer(isDark){
+  if(window.maplibregl && L.maplibreGL){
+    const layer = L.maplibreGL({
+      style: mapStyleUrl(isDark),
+      attribution: MAP_CFG.TILE_ATTR,
+      // Required for the map to appear in screenshots, prints and PDFs.
+      // WebGL normally throws its drawing buffer away the instant it has
+      // painted, which is why an unconfigured MapLibre map captures blank.
+      preserveDrawingBuffer: true
+    });
+    // If the style file is missing or malformed, say so instead of showing
+    // a blank or default-looking map.
+    layer.on('add', ()=>{
+      const gl = layer.getMaplibreMap && layer.getMaplibreMap();
+      if(gl) gl.on('error', e=>{
+        console.error('map style error', e && e.error);
+        showToast('Map style failed to load — check gta-dark.json is in the repo');
+      });
+    });
+    return layer;
+  }
+  console.warn('MapLibre unavailable — falling back to raster tiles');
+  return L.tileLayer(MAP_CFG.TILE_URL, { attribution:MAP_CFG.TILE_ATTR, maxZoom:19 });
+}
+
+function mapEnableTwoFingerGestures(canvas){
+  const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if(!isTouch) return;
+
+  let hintTimer = null;
+  const hint = document.createElement('div');
+  hint.className = 'map-gesture-hint';
+  hint.textContent = 'Use two fingers to move the map';
+  canvas.appendChild(hint);
+
+  canvas.addEventListener('touchstart', e=>{
+    if(e.touches.length >= 2){
+      mapObj.dragging.enable();
+      hint.classList.remove('show');
+      clearTimeout(hintTimer);
+    } else {
+      // One finger: let the page scroll, and say why the map didn't move.
+      mapObj.dragging.disable();
+      hint.classList.add('show');
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(()=>hint.classList.remove('show'), 1600);
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchend', e=>{
+    if(e.touches.length === 0) mapObj.dragging.disable();
+  }, { passive: true });
+
+  mapObj.dragging.disable();   // start in page-scroll mode
+}
+
+function mapDistanceMi(a, b){
+  const R = 3958.8, toRad = d => d*Math.PI/180;
+  const dLat = toRad(b.lat-a.lat), dLon = toRad(b.lon-a.lon);
+  const h = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+
+function mapLocateMe(){
+  if(!navigator.geolocation){ showToast('This browser has no location support'); return; }
+  const btn = document.getElementById('mapLocateBtn');
+  if(btn) btn.setAttribute('disabled','disabled');
+  showToast('Finding your location…');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      myPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      if(btn) btn.removeAttribute('disabled');
+      renderMap();
+      showToast('Location found — sites now sorted by distance');
+    },
+    err=>{
+      if(btn) btn.removeAttribute('disabled');
+      const msg = err.code===1 ? 'Location permission denied — allow it in your browser settings'
+                : err.code===2 ? "Couldn't determine your location"
+                : 'Location request timed out';
+      showToast(msg);
+    },
+    { enableHighAccuracy:true, timeout:10000, maximumAge:60000 }
+  );
+}
+
+function mapFlyTo(lat, lon){
+  if(!mapObj) return;
+  mapObj.setView([lat,lon], 15);
+  mapMarkers.eachLayer(l=>{
+    const ll = l.getLatLng();
+    if(Math.abs(ll.lat-lat)<1e-7 && Math.abs(ll.lng-lon)<1e-7) l.openPopup();
+  });
+  document.getElementById('mapCanvas').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function mapGoHome(){
+  const home = shopPoint();
+  if(!home){ showToast("Shop isn't on the map yet — check the address in Settings"); return; }
+  mapObj.setView([home.lat, home.lon], 15);
+}
+
+async function mapGeocodeMissing(addresses){
+  if(mapGeocoding) return false;
+  const todo = addresses.map(mapNorm)
+    .filter(a=>a && geocache[a]===undefined)
+    .filter((a,i,arr)=>arr.indexOf(a)===i);
+  if(!todo.length) return false;
+  mapGeocoding = true;
+  const btn = document.getElementById('mapRefreshBtn');
+  if(btn) btn.setAttribute('disabled','disabled');
+  let found = 0;
+  for(const addr of todo){
+    // Coordinates pasted in place of an address win outright.
+    let hit = coordsFromText(addr);
+    // Otherwise try the address as written, then progressively simpler forms.
+    for(const variant of (hit ? [] : mapAddressVariants(addr))){
+      try{
+        const res = await fetch(MAP_CFG.GEOCODE_URL + encodeURIComponent(variant));
+        const rows = await res.json();
+        if(rows && rows.length){
+          const pt = { lat: parseFloat(rows[0].lat), lon: parseFloat(rows[0].lon) };
+          if(geoPlausible(pt)){ hit = pt; break; }
+          // A match hundreds of miles away is the wrong street of the same
+          // name. Discard it and try a more specific form.
+          console.warn('geocode rejected (too far):', variant, rows[0].display_name);
+        }
+      }catch(e){ console.error('geocode failed', variant, e); }
+      await new Promise(r=>setTimeout(r, MAP_CFG.GEOCODE_DELAY_MS));
+    }
+    geocache[addr] = hit;           // null is remembered as "couldn't find"
+    if(hit) found++;
+    await new Promise(r=>setTimeout(r, MAP_CFG.GEOCODE_DELAY_MS));
+  }
+  if(btn) btn.removeAttribute('disabled');
+  mapGeocoding = false;
+  if(found) await saveGeocache();
+  return found>0;
+}
+
+async function saveGeocache(){
+  if(!backendSupportsGeocache) return;
+  setSyncing(true);
+  try{
+    const rows = Object.keys(geocache).map(address=>({
+      address,
+      lat: geocache[address] ? geocache[address].lat : '',
+      lon: geocache[address] ? geocache[address].lon : ''
+    }));
+    await apiPost('saveGeocache', rows);
+    setSyncing(false);
+  }catch(e){ console.error('save geocache failed', e); setSyncing(false, true); }
+}
+
+function mapNavLinks(lat, lon, label, address){
+  const addr = (address || '').trim();
+  const q = encodeURIComponent(label || '');
+  const dest = addr ? encodeURIComponent(addr) : `${lat},${lon}`;
+  return `<div class="map-nav-row">
+    <a class="a" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${dest}&q=${q}">Apple</a>
+    <a class="g" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${dest}">Google</a>
+    <a class="w" target="_blank" rel="noopener" href="https://www.waze.com/ul?${addr ? 'q=' + dest : 'll=' + lat + ',' + lon}&navigate=yes">Waze</a>
+  </div>`;
 }
 
 function shopPoint(){
   const la = parseFloat(appSettings.shopLat), lo = parseFloat(appSettings.shopLon);
   if(!isNaN(la) && !isNaN(lo)) return { lat: la, lon: lo };
-  return null;
+  return geocache[mapNorm(shopAddress())] || null;
+}
+
+/* Jobs as map groups, the same shape the tracker's renderer expects. */
+function wbMapGroups(){
+  const g = {};
+  const shop = shopPoint();
+  g['Shop'] = { label:'Shop', address: shopAddress(), isShop:true, stage:null, count:0 };
+  allJobs().forEach(j=>{
+    if(j.stage === 'complete' || !j.address) return;
+    if(stageFilter && j.stage !== stageFilter) return;
+    g[j.name] = { label:j.name, address:j.address, isShop:false, job:j,
+                  stage:j.stage, count:j.equipCount||0 };
+  });
+  return Object.values(g);
+}
+
+function shopAddress(){
+  return (appSettings.shopAddress||'').trim() || '21411 N 11th Ave #16, Phoenix, AZ 85027';
 }
 
 async function renderMap(){
   const canvas = document.getElementById('mapCanvas');
   if(!canvas) return;
-  if(!await mapLoad()){ canvas.innerHTML = `<div class="empty">Map couldn't load — check your connection.</div>`; return; }
+  if(!await mapLoadLeaflet()){
+    canvas.classList.add('map-failed');
+    canvas.textContent = 'The map library could not be loaded. Check your connection, then tap Refresh.';
+    return;
+  }
+  canvas.classList.remove('map-failed');
+
+  const groups = wbMapGroups();
+  await mapGeocodeMissing(groups.filter(g=>!(g.isShop && shopPoint())).map(g=>g.address));
 
   if(!mapObj){
     const home = shopPoint();
-    mapObj = L.map(canvas, { zoomControl:true, dragging:true, tap:false })
-      .setView(home ? [home.lat, home.lon] : MAP_CFG.DEFAULT_CENTER, home ? 12 : MAP_CFG.DEFAULT_ZOOM);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(mapObj);
+    const isDark = appIsDark();
+    mapObj = L.map(canvas, { scrollWheelZoom:true, touchZoom:true, dragging:true, tap:true, bounceAtZoomLimits:false })
+      .setView(home ? [home.lat, home.lon] : MAP_CFG.DEFAULT_CENTER, home ? 13 : MAP_CFG.DEFAULT_ZOOM);
+    mapTileLayer = mapMakeBaseLayer(isDark).addTo(mapObj);
+    mapTileIsDark = isDark;
     mapMarkers = L.layerGroup().addTo(mapObj);
+    mapEnableTwoFingerGestures(canvas);
+    mapFirstOpen = true;
+  }
+  const wantDark = appIsDark();
+  canvas.classList.toggle('map-dark', wantDark);
+  if(mapTileLayer && wantDark !== mapTileIsDark){
+    mapObj.removeLayer(mapTileLayer);
+    mapTileLayer = mapMakeBaseLayer(wantDark).addTo(mapObj);
+    mapTileIsDark = wantDark;
   }
   mapMarkers.clearLayers();
 
-  const jobs = allJobs().filter(j => j.stage !== 'complete' && j.address);
   const bounds = [], unplotted = [];
+  let plotted = 0;
 
-  const home = shopPoint();
-  if(home){
-    bounds.push([home.lat, home.lon]);
-    L.marker([home.lat, home.lon], { icon: L.divIcon({
-      className:'', html:`<div class="map-pin is-shop">&#8962;</div>`, iconSize:[34,34], iconAnchor:[17,17]
-    })}).bindPopup('<div class="map-pop"><div class="nm">The shop</div></div>').addTo(mapMarkers);
-  }
+  groups.forEach(g=>{
+    const pt = g.isShop ? shopPoint() : geocache[mapNorm(g.address)];
+    if(!pt){ if(!g.isShop) unplotted.push(g); return; }
+    plotted++;
+    const st = g.isShop ? null : stageOf(g.stage);
+    const cls = 'map-pin' + (g.isShop ? ' is-shop' : '');
+    const face = g.isShop ? '&#8962;' : (g.count || '&bull;');
+    const style = g.isShop ? '' : `style="background:${st.color};color:#fff;border-color:#101010;box-shadow:0 0 0 2px rgba(0,0,0,.25);"`;
+    const icon = L.divIcon({ className:'', html:`<div class="${cls}" ${style}>${face}</div>`,
+                             iconSize:[28,28], iconAnchor:[14,14] });
+    const dist = myPosition ? ` &middot; ${mapDistanceMi(myPosition, pt).toFixed(1)} mi away` : '';
+    const j = g.job || {};
+    const body = g.isShop
+      ? '<div class="it">Where equipment lives between jobs.</div>'
+      : `<div class="it">${escapeHtml(st.label)}${j.tech ? ` &middot; ${escapeHtml(j.tech)}` : ' &middot; unassigned'}
+           ${j.loss ? `<br>${escapeHtml(j.loss)}` : ''}
+           ${j.claim ? `<br>Claim #${escapeHtml(j.claim)}` : ''}
+           ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site` : ''}</div>`;
+    const call = j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g,''))}">Call</a>` : '';
+    const open = g.isShop ? '' :
+      `<div class="map-nav-row" style="margin-top:5px;">
+         <a href="#" onclick="mapObj.closePopup();openJob(decodeURIComponent('${encodeURIComponent(g.label)}'));return false;">Open job</a>
+       </div>`;
+    L.marker([pt.lat,pt.lon],{icon})
+      .bindPopup(`<div class="map-pop">
+        <div class="nm">${escapeHtml(g.label)}</div>
+        <div class="ad">${escapeHtml(g.address)}${dist}</div>
+        ${body}
+        ${mapNavLinks(pt.lat, pt.lon, g.label, g.address).replace('</div>', call + '</div>')}
+        ${open}
+      </div>`).addTo(mapMarkers);
+    bounds.push([pt.lat,pt.lon]);
+  });
 
-  for(const j of jobs){
-    let pt = geocache[mapNorm(j.address)];
-    if(pt === undefined){
-      pt = await geocodeOne(j.address);
-      geocache[mapNorm(j.address)] = pt;   // null is remembered too, so it isn't retried every render
-      if(pt) await apiPost('saveGeocache', Object.keys(geocache).map(a=>({ address:a, lat:geocache[a]?geocache[a].lat:'', lon:geocache[a]?geocache[a].lon:'' })));
-    }
-    if(!pt){ unplotted.push(j); continue; }
-
-    const st = stageOf(j.stage);
-    bounds.push([pt.lat, pt.lon]);
-    const dest = encodeURIComponent(j.address);
-    L.marker([pt.lat, pt.lon], { icon: L.divIcon({
-      className:'', html:`<div class="map-pin" style="background:${st.color};color:#fff;">${j.equipCount || '•'}</div>`,
-      iconSize:[34,34], iconAnchor:[17,17]
-    })}).bindPopup(`<div class="map-pop">
-      <div class="nm">${escapeHtml(j.name)}</div>
-      <div class="ad">${escapeHtml(j.address)}</div>
-      <div class="it">${st.label}${j.tech ? ` &middot; ${escapeHtml(j.tech)}` : ''}${j.equipCount ? `<br>${j.equipCount} unit${j.equipCount!==1?'s':''} on site` : ''}</div>
-      <div class="map-nav-row">
-        <a class="a" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${dest}">Apple</a>
-        <a class="g" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${dest}">Google</a>
-        ${j.phone ? `<a href="tel:${escapeHtml(j.phone.replace(/[^\d+]/g,''))}">Call</a>` : ''}
-      </div>
-      <div class="map-nav-row" style="margin-top:5px;">
-        <a href="#" onclick="mapObj.closePopup();openJob(decodeURIComponent('${encodeURIComponent(j.name)}'));return false;">Open job</a>
-      </div>
-    </div>`).addTo(mapMarkers);
+  if(myPosition){
+    const icon = L.divIcon({ className:'', html:'<div class="map-pin is-me"></div>', iconSize:[18,18], iconAnchor:[9,9] });
+    mapMeMarker = L.marker([myPosition.lat,myPosition.lon],{icon}).bindPopup('<div class="map-pop"><div class="nm">You are here</div></div>');
+    mapMeMarker.addTo(mapMarkers);
+    bounds.push([myPosition.lat,myPosition.lon]);
   }
 
   const fitKey = bounds.map(b=>b.map(n=>(+n).toFixed(4)).join()).sort().join('|');
@@ -2059,51 +2330,72 @@ async function renderMap(){
     mapObj.fitBounds(bounds, { padding:[40,40], maxZoom:15 });
     mapLastFitKey = fitKey;
   }
+  mapFirstOpen = false;
   mapObj.invalidateSize();
 
+  renderMapStageChips();
   document.getElementById('mapCount').textContent =
-    `${jobs.length - unplotted.length} of ${jobs.length} plotted`;
+    `${plotted - 1} of ${groups.length - 1} job${groups.length-1!==1?'s':''} plotted`;
 
   const warn = document.getElementById('mapWarn');
   if(unplotted.length){
     warn.style.display = 'block';
-    warn.innerHTML = `<b>Not on the map:</b> ${unplotted.map(j=>escapeHtml(j.name)).join(', ')}. ` +
+    warn.innerHTML = `<b>Not on the map:</b> ${unplotted.map(g=>escapeHtml(g.label)).join(', ')}. ` +
       `Open the job and check the address, or paste coordinates from Google or Apple Maps.`;
   } else warn.style.display = 'none';
 
-  document.getElementById('mapUnplotted').innerHTML = unplotted.length
-    ? `<div class="section-title">Needs an address</div>` + unplotted.map(j=>`
-        <div class="team-row" onclick="openJob(decodeURIComponent('${encodeURIComponent(j.name)}'))" style="cursor:pointer;">
-          <div class="nm">${escapeHtml(j.name)}</div><span style="color:var(--muted);font-size:11.5px;">${escapeHtml(j.address||'')}</span>
-        </div>`).join('')
-    : '';
+  renderMapNearest(groups);
 }
 
-/* One address, trying the simpler forms the tracker learned to use, and
-   rejecting anything implausibly far from the shop. */
-async function geocodeOne(addr){
-  const pasted = coordsFromText(addr);
-  if(pasted) return pasted;
-  for(const variant of mapAddressVariants(addr)){
-    try{
-      const res = await fetch(MAP_CFG.GEOCODE_URL + encodeURIComponent(variant));
-      const rows = await res.json();
-      if(rows && rows.length){
-        const pt = { lat: parseFloat(rows[0].lat), lon: parseFloat(rows[0].lon) };
-        if(geoPlausible(pt)) return pt;
-      }
-      await new Promise(r=>setTimeout(r, MAP_CFG.GEOCODE_DELAY_MS));
-    }catch(e){ /* offline — try the next form */ }
-  }
-  return null;
+/* Stage chips above the map, matching the tracker's type chips. */
+function renderMapStageChips(){
+  const wrap = document.getElementById('mapStageChips');
+  if(!wrap) return;
+  const jobs = allJobs().filter(j=>j.stage !== 'complete' && j.address);
+  wrap.innerHTML =
+    `<div class="chip ${stageFilter===''?'active':''}" onclick="setMapStage('')">All ${jobs.length}</div>` +
+    STAGES.filter(st=>st.id!=='complete').map(st=>{
+      const n = jobs.filter(j=>j.stage===st.id).length;
+      if(!n) return '';
+      return `<div class="chip ${stageFilter===st.id?'active':''}" onclick="setMapStage('${st.id}')">${st.label} ${n}</div>`;
+    }).join('');
+}
+function setMapStage(id){
+  stageFilter = (stageFilter === id) ? '' : id;
+  mapLastFitKey = '';
+  renderMap();
+  renderStageChips();
+  renderBoard();
+}
+
+function renderMapNearest(groups){
+  const wrap = document.getElementById('mapNearest');
+  if(!wrap) return;
+  if(!myPosition){ wrap.innerHTML=''; return; }
+  const rows = groups.filter(g=>!g.isShop).map(g=>{
+    const pt = geocache[mapNorm(g.address)];
+    return pt ? { g, pt, mi: mapDistanceMi(myPosition, pt) } : null;
+  }).filter(Boolean).sort((a,b)=>a.mi-b.mi).slice(0,6);
+  if(!rows.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `<div class="section-title">Closest to you</div>` + rows.map(r=>`
+    <div class="row team-row">
+      <div class="nm" style="flex-direction:column;align-items:flex-start;gap:2px;">
+        <b>${escapeHtml(r.g.label)}</b>
+        <span style="color:var(--muted);font-size:11.5px;font-weight:500;">${r.mi.toFixed(1)} mi &middot; ${stageOf(r.g.stage).label}</span>
+      </div>
+      <button class="map-btn" onclick="mapFlyTo(${r.pt.lat},${r.pt.lon})">Show</button>
+    </div>`).join('');
 }
 
 function wbFitAll(){ mapLastFitKey = ''; renderMap(); }
 function wbRefreshMap(){
+  let dropped = 0;
   Object.keys(geocache).forEach(k=>{
     const v = geocache[k];
-    if(v === null || (v && !geoPlausible(v))) delete geocache[k];
+    if(v === null){ delete geocache[k]; return; }
+    if(v && !geoPlausible(v)){ delete geocache[k]; dropped++; }
   });
+  if(dropped){ saveGeocache(); showToast(`${dropped} wrong location${dropped!==1?'s':''} cleared`); }
   mapLastFitKey = '';
   renderMap();
 }
