@@ -1185,6 +1185,10 @@ details.hsec{scroll-margin-top:8px;}
   <div class="section-title">The loss</div>
   <div class="field"><label>Type of loss</label><select id="jdLoss"></select></div>
   <div class="field"><label>Date of loss</label><input id="jdLossDate" type="date"></div>
+  <!-- BEGIN YEAR BUILT. Touch points outside this block: openJob (fill), saveJob (save). -->
+  <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="yearBuiltHint()"></div>
+  <div class="hint" id="jdYearHint" style="display:none;margin-top:-4px;"></div>
+  <!-- END YEAR BUILT -->
   <div class="field"><label>Carrier</label><input id="jdCarrier" placeholder="Insurance company"></div>
   <div class="field"><label>Claim number</label><input id="jdClaim" spellcheck="false"></div>
   <div class="field"><label>Assigned to</label><select id="jdTech"></select></div>
@@ -1862,6 +1866,8 @@ function openJob(name){
   document.getElementById('jdCarrier').value  = j.carrier || '';
   document.getElementById('jdClaim').value    = j.claim   || '';
   document.getElementById('jdLossDate').value = j.lossDate|| '';
+  document.getElementById('jdYearBuilt').value = j.yearBuilt || '';   // YEAR BUILT
+  yearBuiltHint();                                                    // YEAR BUILT
   document.getElementById('jdNotes').value    = j.notes   || '';
 
   document.getElementById('jdLoss').innerHTML =
@@ -1900,6 +1906,35 @@ function setJobStage(id){
     `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
 }
 
+/* BEGIN YEAR BUILT helpers. Touch points: modalJob form, openJob, saveJob. */
+
+/* Anything that isn't a plausible four-digit year is dropped rather than
+   saved, so a typo can't later trip the pre-1980 rule in either direction. */
+function cleanYearBuilt(v){
+  const y = parseInt(String(v).trim(), 10);
+  const now = new Date().getFullYear();
+  return (y >= 1800 && y <= now) ? String(y) : '';
+}
+
+/* Pre-1980 is the cut-off the findings design uses for asbestos testing
+   before demo. Shown as a hint only; it becomes a real action once the
+   findings rules list exists. */
+function yearBuiltHint(){
+  const el = document.getElementById('jdYearHint');
+  const raw = document.getElementById('jdYearBuilt').value.trim();
+  const y = cleanYearBuilt(raw);
+  if(raw.length === 4 && !y){
+    el.textContent = 'That doesn\u2019t look like a valid year.';
+    el.style.display = '';
+  } else if(y && +y < 1980){
+    el.textContent = 'Built before 1980: plan for asbestos testing before any demo.';
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+/* END YEAR BUILT helpers */
+
 /* Creates the Whiteboard half of a job if it doesn't exist yet. The
    tracker's half is never touched. */
 function ensureRecord(name){
@@ -1917,6 +1952,7 @@ async function saveJob(){
   w.claim    = document.getElementById('jdClaim').value.trim();
   w.loss     = document.getElementById('jdLoss').value;
   w.lossDate = document.getElementById('jdLossDate').value;
+  w.yearBuilt = cleanYearBuilt(document.getElementById('jdYearBuilt').value);   // YEAR BUILT
   w.tech     = document.getElementById('jdTech').value;
   w.notes    = document.getElementById('jdNotes').value.trim();
   w.updated  = new Date().toISOString();
