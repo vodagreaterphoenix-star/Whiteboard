@@ -1120,7 +1120,8 @@ details.hsec{scroll-margin-top:8px;}
     <div class="map-warn" id="mapWarn" style="display:none;"></div>
     <div id="mapCanvas"></div>
     <div class="map-unplotted" id="mapNearest"></div>
-    <div class="hint">Pins are coloured by the stage the job is in. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone.</div>
+    <div id="mapWhere"></div>
+    <div class="hint">Amber is a live job, teal is the shop, red needs someone on it. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone.</div>
   </div>
 
   <!-- ========================= TEAM ========================= -->
@@ -1341,25 +1342,6 @@ function allJobs(){
 }
 function stageOf(id){ return STAGES.find(s => s.id === id) || STAGES[0]; }
 
-/* The tracker's pins glow. Rebuilding that here from each stage's colour
-   keeps both maps looking like the same piece of software rather than
-   two apps that happen to share a header. */
-const STAGE_RGB = {
-  new:        '138,148,160',
-  inspection: '46,127,214',
-  mitigation: '0,144,173',
-  drying:     '255,179,0',
-  demo:       '194,65,12',
-  estimate:   '124,58,237',
-  complete:   '46,158,107'
-};
-function stageGlow(id){
-  const rgb = STAGE_RGB[id] || STAGE_RGB.new;
-  const st = stageOf(id);
-  const ink = (id === 'drying') ? '#101010' : '#fff';
-  return `background:${st.color};color:${ink};border:2px solid #101010;` +
-         `box-shadow:0 0 0 2px rgba(${rgb},.35), 0 0 12px rgba(${rgb},.7);`;
-}
 
 /* ---- loading ---- */
 async function loadData(quiet){
@@ -2278,8 +2260,12 @@ function wbMapGroups(){
   allJobs().forEach(j=>{
     if(j.stage === 'complete' || !j.address) return;
     if(stageFilter && j.stage !== stageFilter) return;
+    /* Red is reserved for a job that needs someone to act: nobody
+       assigned, or no address pinned to navigate to. Once approvals and
+       findings exist, those belong here too. */
+    const needsAttention = !j.tech;
     g[j.name] = { label:j.name, address:j.address, isShop:false, job:j,
-                  stage:j.stage, count:j.equipCount||0 };
+                  stage:j.stage, count:j.equipCount||0, needsAttention };
   });
   return Object.values(g);
 }
@@ -2329,14 +2315,16 @@ async function renderMap(){
     const pt = g.isShop ? shopPoint() : geocache[mapNorm(g.address)];
     if(!pt){ if(!g.isShop) unplotted.push(g); return; }
     plotted++;
-    /* Same pin treatment as the tracker — the neon glow is what makes
-       the two maps read as one app. The only difference is what the
-       colour MEANS: stage here, equipment state there. */
+    /* The tracker's exact pin classes, so the two maps are the same map
+       with different contents. Amber for a live job, teal for the shop,
+       red for anything needing attention. The stage is carried by the
+       chips and the popup rather than by the pin colour — colouring pins
+       seven ways made the map harder to read, not easier. */
     const st = g.isShop ? null : stageOf(g.stage);
-    const cls = 'map-pin' + (g.isShop ? ' is-shop' : '');
+    const cls = 'map-pin' + (g.isShop ? ' is-shop' : '')
+              + (g.needsAttention ? ' has-overdue' : '');
     const face = g.isShop ? '&#8962;' : (g.count || '&bull;');
-    const glow = g.isShop ? '' : stageGlow(g.stage);
-    const style = g.isShop ? '' : `style="${glow}"`;
+    const style = '';
     const icon = L.divIcon({ className:'', html:`<div class="${cls}" ${style}>${face}</div>`,
                              iconSize:[28,28], iconAnchor:[14,14] });
     const dist = myPosition ? ` &middot; ${mapDistanceMi(myPosition, pt).toFixed(1)} mi away` : '';
@@ -2379,6 +2367,7 @@ async function renderMap(){
   mapObj.invalidateSize();
 
   renderMapStageChips();
+  renderJobsWhere(groups);
   document.getElementById('mapCount').textContent =
     `${plotted - 1} of ${groups.length - 1} job${groups.length-1!==1?'s':''} plotted`;
 
@@ -2411,6 +2400,53 @@ function setMapStage(id){
   renderMap();
   renderStageChips();
   renderBoard();
+}
+
+/* The same card list the tracker puts under its map, reading jobs
+   instead of equipment: who's on it, what stage, what's on site, and a
+   way straight to the job or to directions. */
+function renderJobsWhere(groups){
+  const wrap = document.getElementById('mapWhere');
+  if(!wrap) return;
+  const rows = groups.filter(g=>!g.isShop)
+    .sort((a,b)=> (b.count||0) - (a.count||0) || a.label.localeCompare(b.label));
+  if(!rows.length){
+    wrap.innerHTML = `<div class="section-title">What's where</div>
+      <div class="empty">No open jobs with an address yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="section-title">What's where (${rows.length} job${rows.length!==1?'s':''})</div>` +
+    rows.map(g=>{
+      const j = g.job || {};
+      const st = stageOf(g.stage);
+      const pt = geocache[mapNorm(g.address)];
+      const dot = g.needsAttention ? 'var(--red)' : st.color;
+      const lines = [];
+      lines.push(`<div class="mw-type"><span class="q" style="color:${st.color};">&bull;</span>
+        <span>${escapeHtml(st.label)}</span>
+        <span class="ids">${j.tech ? escapeHtml(j.tech) : 'unassigned'}</span></div>`);
+      if(j.loss) lines.push(`<div class="mw-type"><span class="q">&bull;</span>
+        <span>${escapeHtml(j.loss)}</span>
+        <span class="ids">${j.claim ? '#' + escapeHtml(j.claim) : ''}</span></div>`);
+      if(g.count) lines.push(`<div class="mw-type"><span class="q">${g.count}</span>
+        <span>unit${g.count!==1?'s':''} on site</span><span class="ids">equipment</span></div>`);
+      const acts = [];
+      if(pt) acts.push(`<button class="map-btn" onclick="mapFlyTo(${pt.lat},${pt.lon})">Show on map</button>`);
+      acts.push(`<button class="map-btn" onclick="openJob(decodeURIComponent('${encodeURIComponent(g.label)}'))">Open job</button>`);
+      acts.push(`<a class="map-btn" style="text-decoration:none;" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(g.address)}">Directions</a>`);
+      return `<div class="mw-card">
+        <div class="mw-head">
+          <span class="mw-dot" style="background:${dot}"></span>
+          <div style="flex:1;min-width:0;">
+            <div class="mw-name">${escapeHtml(g.label)}</div>
+            <div class="mw-addr">${escapeHtml(g.address)}</div>
+          </div>
+          <span class="mw-n">${g.count ? `${g.count} unit${g.count!==1?'s':''}` : ''}</span>
+        </div>
+        <div class="mw-types">${lines.join('')}</div>
+        <div class="mw-go">${acts.join('')}</div>
+      </div>`;
+    }).join('');
 }
 
 function renderMapNearest(groups){
