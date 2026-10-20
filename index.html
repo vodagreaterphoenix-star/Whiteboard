@@ -789,6 +789,94 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .mw-go{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;}
 /* ===== END MAP FEATURE (CSS) ===== */
 
+/* ===== BEGIN ROUTE PLANNING (CSS), added 2026-10-19 =====
+   Select mode on the Map tab, the selection tray, the Assign sheet and
+   the Route tab. Delete with the ROUTE PLANNING HTML and JS blocks. ===== */
+.map-pin{position:relative;}
+.map-pin.is-selected{
+  background:#00E5FF;color:#04202A;border-color:#04202A;animation:none;
+  box-shadow:0 0 0 3px rgba(0,229,255,.45), 0 0 16px rgba(0,229,255,.9);
+}
+.map-pin.is-taken{opacity:.6;}
+/* Initials of whoever already has this stop that day. */
+.map-pin .pin-tag{
+  position:absolute;top:-9px;right:-12px;
+  background:#0A1F3D;color:#fff;border:1.5px solid #fff;border-radius:8px;
+  font-size:9px;font-weight:800;padding:1px 4px;line-height:1.25;letter-spacing:0;
+}
+/* Numbered stops on the Route tab's map: navy, not amber, so they read
+   as "my day" rather than "a job somewhere". */
+.map-pin.is-stop{
+  background:#0A1F3D;color:#fff;border-color:#fff;
+  box-shadow:0 0 0 2px rgba(10,31,61,.3), 0 0 10px rgba(0,229,255,.6);
+}
+.map-pin.is-stop.is-done{background:var(--green);}
+/* touch-action:none hands one-finger drags to the box instead of the page. */
+#mapCanvas.map-selecting{ touch-action:none !important; box-shadow:inset 0 0 0 3px #00E5FF; }
+.sel-box{position:absolute;z-index:650;border:2px dashed #00E5FF;background:rgba(0,229,255,.12);pointer-events:none;display:none;}
+.map-btn.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+.map-btn.go{background:var(--navy);color:#fff;border-color:var(--navy);}
+.map-btn:disabled{opacity:.35;}
+.sel-bar{background:var(--blue-bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
+.sel-bar .t{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.45;}
+.sel-bar .t.sub{font-weight:500;color:var(--muted);font-size:11.5px;}
+.sel-tray{
+  position:fixed;left:0;right:0;bottom:76px;margin:0 auto;max-width:640px;box-sizing:border-box;z-index:85;
+  background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 14px rgba(0,0,0,.12);
+  padding:10px 14px;display:none;align-items:center;gap:10px;
+}
+.sel-tray.show{display:flex;}
+.sel-tray .sum{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);}
+.sel-tray .sum small{display:block;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:1px;}
+.sel-tray .sum small.warn{color:var(--amber);}
+.sel-tray .btn{flex:0 0 auto;padding:10px 16px;font-size:13px;}
+/* Room under the page so the tray never hides the last card. */
+body.has-tray #view-map{padding-bottom:84px;}
+/* Visit reasons: toggles in the Assign sheet, labels everywhere else. */
+.why-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.why-row:empty{display:none;}
+.why{
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:99px;
+  border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;
+}
+span.why{cursor:default;padding:2px 8px;}
+.why.on.monitor{background:var(--blue-bg);color:var(--blue);border-color:transparent;}
+.why.on.pickup{background:var(--amber-bg);color:var(--amber);border-color:transparent;}
+.why.on.supplies{background:var(--green-bg);color:var(--green);border-color:transparent;}
+.stop{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-bottom:8px;}
+.stop.far{border-color:var(--amber);}
+.stop-head{display:flex;align-items:flex-start;gap:10px;}
+.stop-n{
+  width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;flex-shrink:0;
+  font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;
+}
+.stop.done .stop-n{background:var(--green);}
+.stop.done .stop-name{text-decoration:line-through;color:var(--muted);}
+.stop-name{font-weight:700;font-size:14px;color:var(--ink);}
+.stop-addr{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.stop-note{font-size:11.5px;font-weight:600;color:var(--amber);margin-top:6px;}
+.stop-note.quiet{color:var(--muted);font-weight:500;}
+.stop-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+.stop-order{display:flex;flex-direction:column;gap:4px;}
+.stop-order .map-btn{padding:5px 9px;font-size:10px;}
+.stop-x{background:none;border:none;color:var(--muted);font-size:22px;line-height:1;padding:0 4px;cursor:pointer;}
+.rt-head{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.rt-head select{
+  flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:14px;font-weight:600;background:var(--card);color:var(--ink);
+}
+.rt-sum{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin:10px 2px;}
+.rt-sum span{flex:1;min-width:0;}
+#routeCanvas{
+  height:40vh;min-height:240px;width:100%;margin-top:6px;
+  border-radius:var(--radius);border:1px solid var(--line);overflow:hidden;
+  position:relative;z-index:0;isolation:isolate;background:#E8E0CE;
+}
+#routeCanvas.map-dark{background:#0B1B2E;}
+#routeCanvas.map-failed{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:13px;color:var(--muted);}
+body.modal-open #routeCanvas{visibility:hidden;}
+/* ===== END ROUTE PLANNING (CSS) ===== */
+
 /* ===== BEGIN CONSUMABLES FEATURE (CSS) — added 2026-09-22 =====
    Shop supplies that aren't serialised or tracked to a job: bags, poly,
    tape, zippers. Delete this block, the CONSUMABLES HTML block and the
@@ -1117,14 +1205,20 @@ details.hsec{scroll-margin-top:8px;}
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
         Refresh
       </button>
+      <!-- ROUTE PLANNING: Select mode -->
+      <button class="map-btn" id="mapSelBtn" onclick="toggleSelectMode()">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+        Select
+      </button>
       <span class="map-count" id="mapCount"></span>
     </div>
     <div class="chip-row" id="mapStageChips"></div>
+    <div class="sel-bar" id="selBar" style="display:none;"></div>   <!-- ROUTE PLANNING -->
     <div class="map-warn" id="mapWarn" style="display:none;"></div>
     <div id="mapCanvas"></div>
     <div class="map-unplotted" id="mapNearest"></div>
     <div id="mapWhere"></div>
-    <div class="hint">Amber is a live job, teal is the shop, red needs someone on it. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone.</div>
+    <div class="hint">Amber is a live job, teal is the shop, red needs someone on it. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone. Select picks jobs to put on someone's route.</div>
   </div>
 
   <!-- ========================= TEAM ========================= -->
@@ -1134,11 +1228,14 @@ details.hsec{scroll-margin-top:8px;}
     <div id="teamBoard"></div>
   </div>
 
-  <!-- ========================= ROUTE (placeholder) ========================= -->
-  <!-- BEGIN ROUTE VIEW. Nav button is in the bottom nav, ROUTE TAB block. -->
+  <!-- ========================= ROUTE ========================= -->
+  <!-- BEGIN ROUTE VIEW. Nav button is in the bottom nav, ROUTE TAB block. Filled by renderRoute (ROUTE PLANNING JS). -->
   <div class="view" id="view-route">
     <div class="section-title">Route</div>
-    <div class="empty">Coming soon.</div>
+    <div class="rt-head"><select id="rtTech" onchange="setRouteTech(this.value)"></select></div>
+    <div class="chip-row" id="rtDates"></div>
+    <div id="routeCanvas" style="display:none;"></div>
+    <div id="rtList"></div>
   </div>
   <!-- END ROUTE VIEW -->
 
@@ -1162,7 +1259,7 @@ details.hsec{scroll-margin-top:8px;}
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
     <span>Map</span>
   </button>
-  <!-- BEGIN ROUTE TAB (placeholder). Touch points: view-route below, nav CSS note. -->
+  <!-- BEGIN ROUTE TAB. Touch points: view-route below, nav CSS note, ROUTE PLANNING blocks. -->
   <button class="navbtn" data-view="route" onclick="switchView('route')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>
     <span>Route</span>
@@ -1279,7 +1376,28 @@ details.hsec{scroll-margin-top:8px;}
   <div class="hint" style="margin-top:0;">Voda Whiteboard. Job management for Greater Phoenix. Shares a Google Sheet with the Equipment Tracker, so customers, addresses and the team stay in step across both.</div>
 </div></div>
 
-<div class="toast" id="toast"></div>
+<!-- ========================= ROUTE PLANNING ========================= -->
+<!-- BEGIN ROUTE PLANNING (HTML). The tray shows while selecting on the
+     Map tab; the sheet confirms who gets the stops. Delete with the
+     ROUTE PLANNING CSS and JS blocks. -->
+<div class="sel-tray" id="selTray"></div>
+
+<div class="overlay" id="modalAssign"><div class="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div><div class="sheet-title" id="asTitle">Assign stops</div><div class="sheet-sub" id="asSub">—</div></div>
+    <button class="close-x" onclick="closeModal('modalAssign')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="field"><label>Technician</label><select id="asTech" onchange="renderAssign()"></select></div>
+  <div id="asNote"></div>
+  <div id="asStops"></div>
+  <div class="btn-row"><button class="btn btn-primary" id="asGo" onclick="confirmAssign()">Assign</button></div>
+  <div class="hint">New stops go in nearest-first order by straight-line distance, after anything already on that day. The technician can rearrange them on the Route tab.</div>
+</div></div>
+<!-- END ROUTE PLANNING (HTML) -->
+
+<!-- showToast() writes into #toastMsg. Without it every toast threw an error. -->
+<div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
 
 <script>
 /* =====================================================================
@@ -1388,6 +1506,8 @@ async function loadData(quiet){
     inventory  = data.inventory  || [];
     activityLog= data.activity   || [];
     whiteboard = data.whiteboard || [];
+    runs       = data.runs || [];                       // ROUTE PLANNING
+    backendSupportsRuns = data.runs !== undefined;      // ROUTE PLANNING
     backendSupportsGeocache = data.geocache !== undefined;
     geocache = {};
     (data.geocache || []).forEach(r=>{
@@ -1433,6 +1553,7 @@ function renderAll(){
   renderBoard();
   renderTeam();
   if(document.getElementById('view-map').classList.contains('active')) renderMap();
+  if(document.getElementById('view-route').classList.contains('active')) renderRoute();   // ROUTE PLANNING
 }
 
 /* ---- the board ---- */
@@ -1807,6 +1928,8 @@ function switchView(v){
   if(v==='reports') renderReports();
   if(v==='jobs') renderClientsList();
   if(v==='map') renderMap();   // MAP FEATURE: draw the map when the tab opens
+  if(v==='route') renderRoute();   // ROUTE PLANNING
+  renderSelTray();                 // ROUTE PLANNING: the tray only shows on the Map tab
 }
 
 /* Swipe a sheet down by its handle to dismiss it — same gesture as the
@@ -2173,7 +2296,10 @@ function mapMakeBaseLayer(isDark){
   return L.tileLayer(MAP_CFG.TILE_URL, { attribution:MAP_CFG.TILE_ATTR, maxZoom:19 });
 }
 
-function mapEnableTwoFingerGestures(canvas){
+/* ROUTE PLANNING: takes the map it belongs to, so the Route tab's
+   small map gets the same gestures. Defaults to the main map. */
+function mapEnableTwoFingerGestures(canvas, map){
+  map = map || mapObj;
   const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   if(!isTouch) return;
 
@@ -2185,12 +2311,13 @@ function mapEnableTwoFingerGestures(canvas){
 
   canvas.addEventListener('touchstart', e=>{
     if(e.touches.length >= 2){
-      mapObj.dragging.enable();
+      map.dragging.enable();
       hint.classList.remove('show');
       clearTimeout(hintTimer);
     } else {
       // One finger: let the page scroll, and say why the map didn't move.
-      mapObj.dragging.disable();
+      map.dragging.disable();
+      if(map === mapObj && selMode) return;   // ROUTE PLANNING: one finger is drawing a box
       hint.classList.add('show');
       clearTimeout(hintTimer);
       hintTimer = setTimeout(()=>hint.classList.remove('show'), 1600);
@@ -2198,10 +2325,10 @@ function mapEnableTwoFingerGestures(canvas){
   }, { passive: true });
 
   canvas.addEventListener('touchend', e=>{
-    if(e.touches.length === 0) mapObj.dragging.disable();
+    if(e.touches.length === 0) map.dragging.disable();
   }, { passive: true });
 
-  mapObj.dragging.disable();   // start in page-scroll mode
+  map.dragging.disable();   // start in page-scroll mode
 }
 
 function mapDistanceMi(a, b){
@@ -2325,7 +2452,9 @@ function wbMapGroups(){
   const shop = shopPoint();
   g['Shop'] = { label:'Shop', address: shopAddress(), isShop:true, stage:null, count:0 };
   allJobs().forEach(j=>{
-    if(j.stage === 'complete' || !j.address) return;
+    /* ROUTE PLANNING: a finished job still holding equipment stays on
+       the map, because that equipment has to be picked up. */
+    if(!j.address || (j.stage === 'complete' && !j.equipCount)) return;
     if(stageFilter && j.stage !== stageFilter) return;
     /* Red is reserved for a job that needs someone to act: nobody
        assigned, or no address pinned to navigate to. Once approvals and
@@ -2364,6 +2493,7 @@ async function renderMap(){
     mapTileIsDark = isDark;
     mapMarkers = L.layerGroup().addTo(mapObj);
     mapEnableTwoFingerGestures(canvas);
+    selAttachBox(canvas);   // ROUTE PLANNING
     mapFirstOpen = true;
   }
   const wantDark = appIsDark();
@@ -2374,6 +2504,7 @@ async function renderMap(){
     mapTileIsDark = wantDark;
   }
   mapMarkers.clearLayers();
+  mapPinRefs = {};   // ROUTE PLANNING
 
   const bounds = [], unplotted = [];
   let plotted = 0;
@@ -2388,12 +2519,7 @@ async function renderMap(){
        chips and the popup rather than by the pin colour — colouring pins
        seven ways made the map harder to read, not easier. */
     const st = g.isShop ? null : stageOf(g.stage);
-    const cls = 'map-pin' + (g.isShop ? ' is-shop' : '')
-              + (g.needsAttention ? ' has-overdue' : '');
-    const face = g.isShop ? '&#8962;' : (g.count || '&bull;');
-    const style = '';
-    const icon = L.divIcon({ className:'', html:`<div class="${cls}" ${style}>${face}</div>`,
-                             iconSize:[28,28], iconAnchor:[14,14] });
+    const icon = pinIconFor(g);   // ROUTE PLANNING: same pins, plus selected and taken states
     const dist = myPosition ? ` &middot; ${mapDistanceMi(myPosition, pt).toFixed(1)} mi away` : '';
     const j = g.job || {};
     const body = g.isShop
@@ -2401,20 +2527,21 @@ async function renderMap(){
       : `<div class="it">${escapeHtml(st.label)}${j.tech ? ` &middot; ${escapeHtml(j.tech)}` : ' &middot; unassigned'}
            ${j.loss ? `<br>${escapeHtml(j.loss)}` : ''}
            ${j.claim ? `<br>Claim #${escapeHtml(j.claim)}` : ''}
-           ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site` : ''}</div>`;
+           ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site` : ''}${routePopupLine(g.label)}</div>`;
     const call = j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g,''))}">Call</a>` : '';
     const open = g.isShop ? '' :
       `<div class="map-nav-row" style="margin-top:5px;">
          <a href="#" onclick="mapObj.closePopup();openJob(decodeURIComponent('${encodeURIComponent(g.label)}'));return false;">Open job</a>
        </div>`;
-    L.marker([pt.lat,pt.lon],{icon})
-      .bindPopup(`<div class="map-pop">
+    const mk = L.marker([pt.lat,pt.lon],{icon});
+    mk.bindPopup(`<div class="map-pop">
         <div class="nm">${escapeHtml(g.label)}</div>
         <div class="ad">${escapeHtml(g.address)}${dist}</div>
         ${body}
         ${mapNavLinks(pt.lat, pt.lon, g.label, g.address).replace('</div>', call + '</div>')}
         ${open}
       </div>`).addTo(mapMarkers);
+    pinHook(mk, g);   // ROUTE PLANNING
     bounds.push([pt.lat,pt.lon]);
   });
 
@@ -2452,7 +2579,8 @@ async function renderMap(){
 function renderMapStageChips(){
   const wrap = document.getElementById('mapStageChips');
   if(!wrap) return;
-  const jobs = allJobs().filter(j=>j.stage !== 'complete' && j.address);
+  // ROUTE PLANNING: same rule as wbMapGroups, so "All" matches the pins.
+  const jobs = allJobs().filter(j=>j.address && (j.stage !== 'complete' || j.equipCount));
   wrap.innerHTML =
     `<div class="chip ${stageFilter===''?'active':''}" onclick="setMapStage('')">All ${jobs.length}</div>` +
     STAGES.filter(st=>st.id!=='complete').map(st=>{
@@ -2547,6 +2675,732 @@ function wbRefreshMap(){
   mapLastFitKey = '';
   renderMap();
 }
+
+/* =====================================================================
+ * BEGIN ROUTE PLANNING (JS), added 2026-10-19
+ *
+ * Map tab: Select mode. Tap pins or drag a box to pick stops, then
+ * Assign them to a technician for a day.
+ * Route tab: a technician picks their name and sees that day's stops in
+ * order, and can take nearby jobs that nobody has on their route.
+ *
+ * Touch points outside this block: loadData (reads data.runs), renderAll
+ * and switchView (draw Route, show or hide the tray), wbMapGroups
+ * (finished jobs still holding equipment), renderMap (pin icons, pin
+ * clicks, popup line, box select), mapEnableTwoFingerGestures (takes a
+ * map, stays quiet in select mode), the Select button, selBar, selTray,
+ * modalAssign, view-route, and the ROUTE PLANNING CSS block.
+ * Backend: saveRunOp and the Runs tab in Code.gs.
+ * ===================================================================== */
+
+/* The one place to tune how planning behaves. */
+const ROUTE_CFG = {
+  /* A stop further than this from every other stop is flagged amber.
+     Straight-line miles between pins, not drive time. */
+  SPREAD_WARN_MI: 8,
+  /* How many unclaimed jobs to offer under a technician's route. */
+  GRABS_SHOWN: 8
+};
+
+/* Why a stop is on a route. Monitor and Pickup are suggested from the
+   tracker's data. Supplies is only ever set by hand. */
+const VISIT_REASONS = [
+  { id:'monitor',  label:'Monitor'  },
+  { id:'pickup',   label:'Pickup'   },
+  { id:'supplies', label:'Supplies' }
+];
+
+let runs = [];                 // [{date, tech, stops:[{name, why, done, doneAt}], updated}]
+let backendSupportsRuns = true;
+let selMode = false;
+let selDate = '';
+let selected = new Map();      // job name -> { why:[] }
+let selSuppressClickUntil = 0;
+let mapPinRefs = {};           // job name -> { marker, g }, to repaint one pin without redrawing the map
+let routeTech = null;
+let routeDate = '';
+let routeMapObj = null, routeLayer = null, routeTileLayer = null, routeTileIsDark = null;
+let routeLastFitKey = '';
+
+/* The date where the person is, not in UTC. todayStr() is UTC, which
+   rolls over to tomorrow at 5pm in Phoenix and would file an evening's
+   planning under the wrong day. */
+function localDay(offset){
+  const d = new Date();
+  d.setDate(d.getDate() + (offset || 0));
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function dayLabel(ds){
+  if(ds === localDay(0)) return 'Today';
+  if(ds === localDay(1)) return 'Tomorrow';
+  const d = new Date(ds + 'T00:00:00');
+  return isNaN(d) ? ds : d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+function dayPhrase(ds){
+  const l = dayLabel(ds);
+  return (l === 'Today' || l === 'Tomorrow') ? l.toLowerCase() : l;
+}
+
+/* encodeURIComponent leaves apostrophes alone, so a customer called
+   O'Brien would end the quoted string early inside an onclick. */
+function qa(s){ return "decodeURIComponent('" + encodeURIComponent(String(s)).replace(/'/g, '%27') + "')"; }
+
+function isTouchDevice(){ return ('ontouchstart' in window) || navigator.maxTouchPoints > 0; }
+
+/* Suggested reasons, from what the tracker already knows. Equipment on
+   site means someone needs to monitor it. Once the job has moved past
+   drying, it means the equipment is coming home.
+
+   Equipment staying past its day limit deliberately does NOT become a
+   pickup here. A job runs long because it's still wet, and the readings
+   decide when it's dry, not the calendar. When the Dashboard records
+   "more readings needed", that belongs in this function. */
+function suggestedReasons(j){
+  if(!j || !j.equipCount) return [];
+  return [['demo','estimate','complete'].includes(j.stage) ? 'pickup' : 'monitor'];
+}
+
+function jobByName(name){ return allJobs().find(j => j.name === name) || null; }
+function jobPoint(name){
+  const j = jobByName(name);
+  return j && j.address ? (geocache[mapNorm(j.address)] || null) : null;
+}
+function runFor(tech, date){ return runs.find(r => r.tech === tech && r.date === date) || null; }
+function runOfStop(name, date){ return runs.find(r => r.date === date && (r.stops || []).some(s => s.name === name)) || null; }
+function reasonLabel(id){ const r = VISIT_REASONS.find(x => x.id === id); return r ? r.label : id; }
+function cloneRun(r){ return JSON.parse(JSON.stringify(r)); }
+
+/* Jobs that need a visit that day and are on nobody's route. */
+function unclaimedJobs(date){
+  return allJobs().filter(j => j.address && suggestedReasons(j).length && !runOfStop(j.name, date));
+}
+
+/* Nearest next stop, by straight line. Enough to stop a day going
+   north, south, then north again; the technician can fix the rest. */
+function orderNearest(names, start){
+  const left = names.slice(), out = [];
+  let here = start;
+  while(left.length){
+    let best = 0, bestD = Infinity;
+    if(here) left.forEach((n, i) => {
+      const p = jobPoint(n);
+      const d = p ? mapDistanceMi(here, p) : Infinity;
+      if(d < bestD){ bestD = d; best = i; }
+    });
+    const n = left.splice(best, 1)[0];
+    out.push(n);
+    here = jobPoint(n) || here;
+  }
+  return out;
+}
+
+/* How spread out a set of stops is: the widest distance across them,
+   and any stop that is far from every other one. */
+function spreadOf(names){
+  const pts = names.map(n => ({ n, p: jobPoint(n) })).filter(x => x.p);
+  let across = 0;
+  const far = {};
+  pts.forEach((a, i) => {
+    let nearest = Infinity;
+    pts.forEach((b, k) => {
+      if(i === k) return;
+      const d = mapDistanceMi(a.p, b.p);
+      if(d > across) across = d;
+      if(d < nearest) nearest = d;
+    });
+    if(pts.length > 1 && nearest > ROUTE_CFG.SPREAD_WARN_MI) far[a.n] = nearest;
+  });
+  return { across, far };
+}
+
+/* Shop, every stop in order, and back to the shop, in straight lines.
+   Real driving is longer; this is for comparing one day with another. */
+function routeMiles(names){
+  const shop = shopPoint();
+  let here = shop, total = 0;
+  names.forEach(n => {
+    const p = jobPoint(n);
+    if(!p) return;
+    if(here) total += mapDistanceMi(here, p);
+    here = p;
+  });
+  if(shop && here && here !== shop) total += mapDistanceMi(here, shop);
+  return total;
+}
+
+function whyChips(why, toggleFor){
+  return `<div class="why-row">${VISIT_REASONS.map(r => {
+    const on = (why || []).includes(r.id);
+    if(toggleFor !== undefined)
+      return `<button class="why ${r.id} ${on ? 'on' : ''}" onclick="selToggleWhy(${qa(toggleFor)}, '${r.id}')">${r.label}</button>`;
+    return on ? `<span class="why on ${r.id}">${r.label}</span>` : '';
+  }).join('')}</div>`;
+}
+
+function dateChips(current, fn){
+  const opts = [localDay(0), localDay(1)];
+  const other = !opts.includes(current);
+  return opts.map(d => `<div class="chip ${d === current ? 'active' : ''}" onclick="${fn}('${d}')">${dayLabel(d)}</div>`).join('') +
+    `<label class="chip ${other ? 'active' : ''}" style="position:relative;overflow:hidden;">${other ? dayLabel(current) : 'Other day'}
+       <input type="date" value="${current}" onchange="${fn}(this.value)" aria-label="Pick a day"
+         style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;"></label>`;
+}
+
+/* ---- saving ---- */
+
+/* Saves one technician's day. The backend refuses if the run changed
+   since this device read it, or if a stop is already on someone else's
+   run that day (unless move is set). Either way it hands back the
+   current runs, so the screen catches up before anyone tries again. */
+async function saveRun(run, base, move){
+  if(!backendSupportsRuns){ showToast('Backend needs updating: deploy the new Code.gs first'); return false; }
+  setSyncing(true);
+  try{
+    const r = await apiPost('saveRun', { run, base: base || null, move: !!move });
+    if(r && r.runs) runs = r.runs;
+    if(!r || r.error){
+      setSyncing(false);
+      const e = r && r.error;
+      if(e === 'taken') showToast((r.taken || []).map(t => `${t.name} is already on ${t.tech}'s route`).join('. '));
+      else if(e === 'changed') showToast('Someone just changed this route. It has been refreshed, try again.');
+      else showToast('Not saved: ' + (e || 'no reply'));
+      refreshRouteViews();
+      return false;
+    }
+    setSyncing(false);
+    refreshRouteViews();
+    return true;
+  }catch(err){
+    console.error('saveRun failed', err);
+    setSyncing(false, true);
+    showToast('Not saved, check your connection');
+    return false;
+  }
+}
+
+function refreshRouteViews(){
+  repaintAllPins();
+  renderSelTray();
+  if(document.getElementById('view-route').classList.contains('active')) renderRoute();
+}
+
+/* ---- Map tab: select mode ---- */
+
+function pinIconFor(g){
+  const run = (selMode && !g.isShop) ? runOfStop(g.label, selDate) : null;
+  const isSel = selMode && selected.has(g.label);
+  const cls = 'map-pin' + (g.isShop ? ' is-shop' : '')
+            /* While planning, a pin already on someone's route is handled for
+               that day, so it drops the red "nobody assigned" pulse. */
+            + (g.needsAttention && !isSel && !run ? ' has-overdue' : '')
+            + (isSel ? ' is-selected' : '')
+            + (run && !isSel ? ' is-taken' : '');
+  const face = g.isShop ? '&#8962;' : (g.count || '&bull;');
+  const tag = run ? `<span class="pin-tag">${escapeHtml(initials(run.tech))}</span>` : '';
+  return L.divIcon({ className:'', html:`<div class="${cls}">${face}${tag}</div>`, iconSize:[28,28], iconAnchor:[14,14] });
+}
+
+function repaintAllPins(){
+  Object.values(mapPinRefs).forEach(ref => ref.marker.setIcon(pinIconFor(ref.g)));
+}
+
+/* Called by renderMap for every pin it draws. In select mode a tap
+   picks the pin instead of opening its popup. */
+function pinHook(marker, g){
+  if(g.isShop) return;
+  mapPinRefs[g.label] = { marker, g };
+  if(!selMode) return;
+  marker.unbindPopup();
+  marker.on('click', () => {
+    if(Date.now() < selSuppressClickUntil) return;   // the end of a box drag, not a tap
+    selToggle(g.label);
+  });
+}
+
+function routePopupLine(name){
+  const r = runOfStop(name, localDay(0));
+  if(r) return `<br>On ${escapeHtml(r.tech)}'s route today`;
+  const why = suggestedReasons(jobByName(name));
+  return why.length ? `<br>Needs a visit: ${why.map(reasonLabel).join(', ')}` : '';
+}
+
+function toggleSelectMode(){
+  selMode = !selMode;
+  if(!selDate) selDate = localDay(0);
+  if(!selMode) selected.clear();
+  document.getElementById('mapSelBtn').classList.toggle('on', selMode);
+  document.getElementById('mapCanvas').classList.toggle('map-selecting', selMode);
+  if(mapObj){
+    mapObj.closePopup();
+    /* One finger (or the mouse) now draws a box rather than moving the
+       map. On a phone, two fingers still move it, as they always have. */
+    if(selMode){ mapObj.dragging.disable(); mapObj.boxZoom.disable(); }
+    else { mapObj.boxZoom.enable(); if(!isTouchDevice()) mapObj.dragging.enable(); }
+  }
+  renderSelBar();
+  renderSelTray();
+  renderMap();   // rebinds every pin: taps select in this mode, open popups outside it
+}
+
+function renderSelBar(){
+  const bar = document.getElementById('selBar');
+  if(!selMode){ bar.style.display = 'none'; return; }
+  bar.style.display = 'block';
+  bar.innerHTML = `<div class="t">Planning for</div>
+    <div class="chip-row" style="margin:6px 0 4px;">${dateChips(selDate, 'setSelDate')}</div>
+    <div class="t sub">Tap pins to add or remove them, or drag a box to grab every pin inside it.
+      ${isTouchDevice() ? 'Two fingers still move the map.' : 'Scroll to zoom.'}
+      Initials on a pin mean it is already on someone's route that day.</div>`;
+}
+
+function setSelDate(d){
+  if(!d) return;
+  selDate = d;
+  renderSelBar();
+  repaintAllPins();
+  renderSelTray();
+}
+
+function selAdd(name){
+  const r = runOfStop(name, selDate);
+  const s = r && r.stops.find(x => x.name === name);
+  selected.set(name, { why: s ? (s.why || []).slice() : suggestedReasons(jobByName(name)) });
+}
+function selToggle(name){
+  if(selected.has(name)) selected.delete(name); else selAdd(name);
+  const ref = mapPinRefs[name];
+  if(ref) ref.marker.setIcon(pinIconFor(ref.g));
+  renderSelTray();
+}
+function selRemove(name){
+  selected.delete(name);
+  const ref = mapPinRefs[name];
+  if(ref) ref.marker.setIcon(pinIconFor(ref.g));
+  renderSelTray();
+  if(!selected.size){ closeModal('modalAssign'); return; }
+  renderAssign();
+}
+function selClear(){
+  selected.clear();
+  repaintAllPins();
+  renderSelTray();
+}
+function selToggleWhy(name, id){
+  const s = selected.get(name);
+  if(!s) return;
+  s.why = s.why.includes(id) ? s.why.filter(x => x !== id) : [...s.why, id];
+  renderAssign();
+}
+
+/* Box select. Pointer events cover finger and mouse alike. A second
+   finger cancels the box, because two fingers mean "move the map". */
+function selAttachBox(canvas){
+  if(canvas._selBox) return;
+  const box = document.createElement('div');
+  box.className = 'sel-box';
+  canvas.appendChild(box);
+  canvas._selBox = box;
+  const down = new Set();
+  let start = null, cur = null;
+  const at = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+  canvas.addEventListener('pointerdown', e => {
+    down.add(e.pointerId);
+    if(!selMode) return;
+    if(down.size > 1){ start = null; box.style.display = 'none'; return; }
+    if(e.button > 0 || e.target.closest('.leaflet-control')) return;
+    start = cur = at(e);
+  });
+  window.addEventListener('pointermove', e => {
+    if(!selMode || !start) return;
+    cur = at(e);
+    const w = Math.abs(cur.x - start.x), h = Math.abs(cur.y - start.y);
+    if(w < 8 && h < 8) return;
+    Object.assign(box.style, { display:'block', left: Math.min(start.x, cur.x) + 'px', top: Math.min(start.y, cur.y) + 'px',
+                               width: w + 'px', height: h + 'px' });
+  });
+  const finish = e => {
+    down.delete(e.pointerId);
+    if(!selMode || !start) return;
+    const s = start, c = cur || start;
+    start = null;
+    box.style.display = 'none';
+    if(e.type === 'pointercancel') return;
+    if(Math.abs(c.x - s.x) < 8 && Math.abs(c.y - s.y) < 8) return;   // a tap: the pin's own click handles it
+    selSuppressClickUntil = Date.now() + 400;
+    const b = L.latLngBounds(mapObj.containerPointToLatLng([s.x, s.y]), mapObj.containerPointToLatLng([c.x, c.y]));
+    let added = 0;
+    Object.keys(mapPinRefs).forEach(name => {
+      if(!selected.has(name) && b.contains(mapPinRefs[name].marker.getLatLng())){ selAdd(name); added++; }
+    });
+    repaintAllPins();
+    renderSelTray();
+    showToast(added ? `${added} added` : 'No new pins in that box');
+  };
+  window.addEventListener('pointerup', finish);
+  window.addEventListener('pointercancel', finish);
+}
+
+/* The bar above the bottom nav while selecting. Measured against the
+   nav each time, because its height changes with the phone's home bar. */
+function renderSelTray(){
+  const tray = document.getElementById('selTray');
+  const show = selMode && document.getElementById('view-map').classList.contains('active');
+  tray.classList.toggle('show', show);
+  document.body.classList.toggle('has-tray', show);
+  if(!show) return;
+  const nav = document.querySelector('nav.bottom');
+  if(nav) tray.style.bottom = nav.offsetHeight + 'px';
+  const names = [...selected.keys()];
+  const sp = spreadOf(names);
+  const farN = Object.keys(sp.far).length;
+  const small = names.length > 1
+    ? `<small class="${farN ? 'warn' : ''}">${sp.across.toFixed(1)} mi across${farN ? ` &middot; ${farN} far from the rest` : ''}</small>`
+    : `<small>For ${dayPhrase(selDate)}</small>`;
+  tray.innerHTML = `<div class="sum">${names.length ? `${names.length} stop${names.length !== 1 ? 's' : ''} selected` : 'Nothing selected yet'}${small}</div>
+    ${names.length ? `<button class="btn btn-ghost" onclick="selClear()">Clear</button>` : ''}
+    <button class="btn btn-primary" onclick="openAssign()" ${names.length ? '' : 'disabled'}>Assign</button>`;
+}
+
+/* ---- Map tab: the Assign sheet ---- */
+
+function openAssign(){
+  if(!selected.size) return;
+  const sel = document.getElementById('asTech');
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Choose a technician</option>' +
+    [...new Set(personnel)].sort().map(p => `<option>${escapeHtml(p)}</option>`).join('');
+  if(keep) sel.value = keep;
+  renderAssign();
+  openModal('modalAssign');
+}
+
+function renderAssign(){
+  const names = [...selected.keys()];
+  const tech = document.getElementById('asTech').value;
+  const label = dayLabel(selDate);
+  document.getElementById('asTitle').textContent = `Assign ${names.length} stop${names.length !== 1 ? 's' : ''}`;
+  document.getElementById('asSub').textContent = (label === 'Today' || label === 'Tomorrow') ? `${label}, ${fmtDate(selDate)}` : fmtDate(selDate);
+
+  const mine = tech ? runFor(tech, selDate) : null;
+  const already = mine ? mine.stops.map(s => s.name) : [];
+  const whole = [...new Set([...already, ...names])];
+  const sp = spreadOf(whole);
+  const notes = [];
+  if(mine){
+    const extra = names.filter(n => !already.includes(n)).length;
+    notes.push(`${escapeHtml(tech)} already has ${already.length} stop${already.length !== 1 ? 's' : ''} ${dayPhrase(selDate)}.` +
+      (extra ? ` These ${extra} go after them.` : ''));
+  }
+  if(whole.length > 1) notes.push(`The day covers ${sp.across.toFixed(1)} mi across, straight line.`);
+  document.getElementById('asNote').innerHTML = notes.length
+    ? `<div class="hint" style="margin:0 0 10px;">${notes.join(' ')}</div>` : '';
+
+  document.getElementById('asStops').innerHTML = names.map(n => {
+    const j = jobByName(n) || {};
+    const s = selected.get(n);
+    const r = runOfStop(n, selDate);
+    const lines = [];
+    if(sp.far[n] !== undefined) lines.push(`${sp.far[n].toFixed(1)} mi from the nearest other stop`);
+    if(r && r.tech !== tech) lines.push(`On ${escapeHtml(r.tech)}'s route${tech ? '. Assigning moves it.' : '.'}`);
+    if(r && r.tech === tech) lines.push(`Already on ${escapeHtml(tech)}'s route`);
+    if(!s.why.length) lines.push('No reason picked');
+    return `<div class="stop ${sp.far[n] !== undefined ? 'far' : ''}">
+      <div class="stop-head">
+        <div style="flex:1;min-width:0;">
+          <div class="stop-name">${escapeHtml(n)}</div>
+          <div class="stop-addr">${escapeHtml(j.address || 'No address')}</div>
+        </div>
+        <button class="stop-x" onclick="selRemove(${qa(n)})" aria-label="Remove">&times;</button>
+      </div>
+      ${whyChips(s.why, n)}
+      ${lines.map(l => `<div class="stop-note">${l}</div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+async function confirmAssign(){
+  const tech = document.getElementById('asTech').value;
+  if(!tech){ showToast('Choose a technician first'); return; }
+  const names = [...selected.keys()];
+  if(!names.length) return;
+  const existing = runFor(tech, selDate);
+  const run = existing ? cloneRun(existing) : { date: selDate, tech, stops: [] };
+  const have = new Set(run.stops.map(s => s.name));
+  run.stops.forEach(s => { if(selected.has(s.name)) s.why = selected.get(s.name).why.slice(); });
+  const lastStop = run.stops.length ? jobPoint(run.stops[run.stops.length - 1].name) : null;
+  orderNearest(names.filter(n => !have.has(n)), lastStop || shopPoint())
+    .forEach(n => run.stops.push({ name: n, why: selected.get(n).why.slice(), done: false }));
+  const move = names.some(n => { const r = runOfStop(n, selDate); return r && r.tech !== tech; });
+
+  const btn = document.getElementById('asGo');
+  btn.disabled = true;
+  const ok = await saveRun(run, existing ? existing.updated : null, move);
+  btn.disabled = false;
+  if(!ok){ renderAssign(); return; }
+  closeModal('modalAssign');
+  showToast(`${names.length} stop${names.length !== 1 ? 's' : ''} on ${tech}'s route for ${dayPhrase(selDate)}`);
+  selClear();
+}
+
+/* ---- Route tab ---- */
+
+function setRouteTech(v){
+  routeTech = v;
+  routeLastFitKey = '';
+  try{ localStorage.setItem('voda-wb-route-tech', v); }catch(e){}
+  renderRoute();
+}
+function setRouteDate(d){
+  if(!d) return;
+  routeDate = d;
+  routeLastFitKey = '';
+  renderRoute();
+}
+
+function renderRoute(){
+  if(!routeDate) routeDate = localDay(0);
+  if(routeTech === null){ try{ routeTech = localStorage.getItem('voda-wb-route-tech') || ''; }catch(e){ routeTech = ''; } }
+  const names = [...new Set(personnel)].sort();
+  if(routeTech && routeTech !== '*' && !names.includes(routeTech)) routeTech = '';
+
+  const sel = document.getElementById('rtTech');
+  sel.innerHTML = '<option value="">Who are you?</option><option value="*">Everyone</option>' +
+    names.map(p => `<option>${escapeHtml(p)}</option>`).join('');
+  sel.value = routeTech;
+  document.getElementById('rtDates').innerHTML = dateChips(routeDate, 'setRouteDate');
+
+  const canvas = document.getElementById('routeCanvas');
+  const list = document.getElementById('rtList');
+  const warn = backendSupportsRuns ? '' :
+    `<div class="map-warn">The backend hasn't been updated yet, so routes can't be saved. Deploy the new Code.gs.</div>`;
+
+  if(!routeTech){
+    canvas.style.display = 'none';
+    list.innerHTML = warn + `<div class="empty">Pick your name to see your route.</div>`;
+    return;
+  }
+  if(routeTech === '*'){
+    canvas.style.display = 'none';
+    list.innerHTML = warn + renderEveryone(names);
+    return;
+  }
+
+  const run = runFor(routeTech, routeDate);
+  const stops = run ? run.stops : [];
+  canvas.style.display = stops.length ? '' : 'none';
+  if(stops.length) drawRouteMap(stops);
+
+  const done = stops.filter(s => s.done).length;
+  const head = stops.length
+    ? `<div class="rt-sum"><span>${stops.length} stop${stops.length !== 1 ? 's' : ''}${done ? ` &middot; ${done} done` : ''}
+         &middot; about ${routeMiles(stops.map(s => s.name)).toFixed(0)} mi from the shop and back, straight line</span>
+         ${stops.length - done > 1 ? `<button class="map-btn" onclick="routeResort()">Nearest first</button>` : ''}</div>`
+    : `<div class="empty" style="padding:24px 20px;">Nothing on your route ${dayPhrase(routeDate)} yet.</div>`;
+
+  const cards = stops.map((s, i) => {
+    const j = jobByName(s.name) || {};
+    const addr = j.address || '';
+    const dest = encodeURIComponent(addr);
+    const nav = addr ? `<div class="map-nav-row" style="margin-top:9px;">
+        <a class="a" target="_blank" rel="noopener" href="https://maps.apple.com/?daddr=${dest}">Apple</a>
+        <a class="g" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${dest}">Google</a>
+        <a class="w" target="_blank" rel="noopener" href="https://www.waze.com/ul?q=${dest}&navigate=yes">Waze</a>
+        ${j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g, ''))}">Call</a>` : ''}
+      </div>` : '';
+    return `<div class="stop ${s.done ? 'done' : ''}">
+      <div class="stop-head">
+        <div class="stop-n">${s.done ? '&#10003;' : i + 1}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="stop-name">${escapeHtml(s.name)}</div>
+          <div class="stop-addr">${escapeHtml(addr || 'No address on this job')}</div>
+          ${whyChips(s.why)}
+        </div>
+        <div class="stop-order">
+          <button class="map-btn" onclick="routeMove(${i},-1)" ${i === 0 ? 'disabled' : ''} aria-label="Move up">&#9650;</button>
+          <button class="map-btn" onclick="routeMove(${i},1)" ${i === stops.length - 1 ? 'disabled' : ''} aria-label="Move down">&#9660;</button>
+        </div>
+      </div>
+      ${nav}
+      <div class="stop-acts">
+        <button class="map-btn ${s.done ? '' : 'go'}" onclick="routeDone(${i})">${s.done ? 'Not done' : 'Done'}</button>
+        <button class="map-btn" onclick="openJob(${qa(s.name)})">Open job</button>
+        <button class="map-btn" onclick="routeRemove(${i})">Take off my route</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = warn + head + cards + renderGrabs(stops);
+}
+
+/* Jobs that need a visit and that nobody has, closest to this route
+   first. With no stops yet, closest to where the technician is, or to
+   the shop. */
+function renderGrabs(stops){
+  const mine = stops.map(s => jobPoint(s.name)).filter(Boolean);
+  const origin = mine.length ? null : (myPosition || shopPoint());
+  const fromWhat = mine.length ? 'your nearest stop' : (myPosition ? 'you' : 'the shop');
+  const rows = unclaimedJobs(routeDate).map(j => {
+    const p = jobPoint(j.name);
+    if(!p) return null;
+    const d = mine.length ? Math.min(...mine.map(m => mapDistanceMi(m, p))) : (origin ? mapDistanceMi(origin, p) : 0);
+    return { j, d };
+  }).filter(Boolean).sort((a, b) => a.d - b.d).slice(0, ROUTE_CFG.GRABS_SHOWN);
+
+  if(!rows.length) return `<div class="section-title">Up for grabs</div>
+    <div class="hint" style="margin-top:0;">Every job that needs a visit ${dayPhrase(routeDate)} is on someone's route.</div>`;
+  return `<div class="section-title">Up for grabs nearby</div>` + rows.map(({ j, d }) => `
+    <div class="stop">
+      <div class="stop-head">
+        <div style="flex:1;min-width:0;">
+          <div class="stop-name">${escapeHtml(j.name)}</div>
+          <div class="stop-addr">${escapeHtml(j.address)}</div>
+          ${whyChips(suggestedReasons(j))}
+          <div class="stop-note ${d > ROUTE_CFG.SPREAD_WARN_MI ? '' : 'quiet'}">${d.toFixed(1)} mi from ${fromWhat}</div>
+        </div>
+        <button class="map-btn go" onclick="routeGrab(${qa(j.name)})">Add</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderEveryone(names){
+  const cards = names.map(p => {
+    const r = runFor(p, routeDate);
+    const stops = r ? r.stops : [];
+    const done = stops.filter(s => s.done).length;
+    const sp = spreadOf(stops.map(s => s.name));
+    return `<div class="con-card" style="cursor:pointer;" onclick="setRouteTech(${qa(p)})">
+      <div class="con-top">
+        <div class="con-ic" style="background:var(--blue-bg);"><span style="font-weight:800;color:var(--blue);font-size:12px;">${initials(p)}</span></div>
+        <div class="con-body">
+          <div class="con-name">${escapeHtml(p)}</div>
+          <div class="con-meta">${stops.length
+            ? `${stops.length} stop${stops.length !== 1 ? 's' : ''}${done ? ` &middot; ${done} done` : ''}${stops.length > 1 ? ` &middot; ${sp.across.toFixed(1)} mi across` : ''}`
+            : 'Nothing planned'}</div>
+        </div>
+      </div>
+      ${stops.length ? `<div class="mw-types" style="margin-top:9px;">${stops.map((s, i) => `
+        <div class="mw-type"><span class="q">${i + 1}</span><span>${escapeHtml(s.name)}</span>
+          <span class="ids">${s.done ? 'done' : (s.why || []).map(reasonLabel).join(', ')}</span></div>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('');
+  const open = unclaimedJobs(routeDate);
+  const left = open.length
+    ? `<div class="section-title">Not on anyone's route (${open.length})</div><div class="hint" style="margin-top:0;">${open.map(j => escapeHtml(j.name)).join(', ')}</div>`
+    : '';
+  return (cards || `<div class="empty">No team members yet. Add them in the Equipment Tracker.</div>`) + left;
+}
+
+/* Every change on the Route tab is a whole-run save of this one
+   technician's day, checked against the version this device last saw. */
+function editMyRun(change){
+  const cur = runFor(routeTech, routeDate);
+  const run = cur ? cloneRun(cur) : { date: routeDate, tech: routeTech, stops: [] };
+  if(change(run) === false) return;
+  saveRun(run, cur ? cur.updated : null, false);
+}
+function routeMove(i, dir){
+  editMyRun(run => {
+    const k = i + dir;
+    if(k < 0 || k >= run.stops.length) return false;
+    [run.stops[i], run.stops[k]] = [run.stops[k], run.stops[i]];
+  });
+}
+function routeDone(i){
+  editMyRun(run => {
+    const s = run.stops[i];
+    if(!s) return false;
+    s.done = !s.done;
+    s.doneAt = s.done ? new Date().toISOString() : '';
+  });
+}
+function routeRemove(i){
+  const cur = runFor(routeTech, routeDate);
+  const s = cur && cur.stops[i];
+  if(!s || !confirm(`Take ${s.name} off your route? It goes back to Up for grabs.`)) return;
+  editMyRun(run => { run.stops.splice(i, 1); });
+}
+function routeGrab(name){
+  editMyRun(run => {
+    if(run.stops.some(s => s.name === name)) return false;
+    run.stops.push({ name, why: suggestedReasons(jobByName(name)), done: false });
+  });
+}
+/* Done stops stay where they are, at the top. What's left is put in
+   nearest-first order from the last finished stop, or from the shop. */
+function routeResort(){
+  editMyRun(run => {
+    const done = run.stops.filter(s => s.done), todo = run.stops.filter(s => !s.done);
+    const from = done.length ? jobPoint(done[done.length - 1].name) : null;
+    const order = orderNearest(todo.map(s => s.name), from || shopPoint());
+    run.stops = [...done, ...order.map(n => todo.find(s => s.name === n))];
+  });
+}
+
+/* The small map on the Route tab: shop, numbered stops, and a dashed
+   line in the order they'll be driven. The line is straight, not roads. */
+async function drawRouteMap(stops){
+  const canvas = document.getElementById('routeCanvas');
+  await mapCheckStyles();
+  if(!await mapLoadLeaflet()){
+    canvas.classList.add('map-failed');
+    canvas.textContent = 'The map library could not be loaded. Check your connection.';
+    return;
+  }
+  const isDark = appIsDark();
+  if(!routeMapObj){
+    const home = shopPoint();
+    routeMapObj = L.map(canvas, { scrollWheelZoom:true, touchZoom:true, dragging:true, tap:true, bounceAtZoomLimits:false })
+      .setView(home ? [home.lat, home.lon] : MAP_CFG.DEFAULT_CENTER, 12);
+    routeTileLayer = mapMakeBaseLayer(isDark).addTo(routeMapObj);
+    routeTileIsDark = isDark;
+    routeLayer = L.layerGroup().addTo(routeMapObj);
+    mapEnableTwoFingerGestures(canvas, routeMapObj);
+  }
+  canvas.classList.toggle('map-dark', isDark);
+  if(isDark !== routeTileIsDark){
+    routeMapObj.removeLayer(routeTileLayer);
+    routeTileLayer = mapMakeBaseLayer(isDark).addTo(routeMapObj);
+    routeTileIsDark = isDark;
+  }
+  routeLayer.clearLayers();
+
+  const shop = shopPoint();
+  const line = [], bounds = [];
+  if(shop){
+    L.marker([shop.lat, shop.lon], { icon: L.divIcon({ className:'', html:'<div class="map-pin is-shop">&#8962;</div>', iconSize:[28,28], iconAnchor:[14,14] }) })
+      .bindPopup('<div class="map-pop"><div class="nm">Shop</div></div>').addTo(routeLayer);
+    line.push([shop.lat, shop.lon]);
+    bounds.push([shop.lat, shop.lon]);
+  }
+  stops.forEach((s, i) => {
+    const p = jobPoint(s.name);
+    if(!p) return;
+    const j = jobByName(s.name) || {};
+    const icon = L.divIcon({ className:'', html:`<div class="map-pin is-stop ${s.done ? 'is-done' : ''}">${i + 1}</div>`, iconSize:[28,28], iconAnchor:[14,14] });
+    L.marker([p.lat, p.lon], { icon })
+      .bindPopup(`<div class="map-pop"><div class="nm">${i + 1}. ${escapeHtml(s.name)}</div>
+        <div class="ad">${escapeHtml(j.address || '')}</div>${mapNavLinks(p.lat, p.lon, s.name, j.address)}</div>`)
+      .addTo(routeLayer);
+    line.push([p.lat, p.lon]);
+    bounds.push([p.lat, p.lon]);
+  });
+  if(shop && line.length > 1) line.push([shop.lat, shop.lon]);
+  if(line.length > 1) L.polyline(line, { color:'#00B4D8', weight:3, opacity:.85, dashArray:'6 8' }).addTo(routeLayer);
+
+  /* Only refit when the set of points changes, so ticking a stop done
+     doesn't throw away the zoom the technician had chosen. */
+  const key = bounds.map(b => b.map(n => n.toFixed(4)).join()).sort().join('|');
+  setTimeout(() => {
+    routeMapObj.invalidateSize();
+    if(key !== routeLastFitKey){
+      if(bounds.length > 1) routeMapObj.fitBounds(bounds, { padding:[30,30], maxZoom:14 });
+      else if(bounds.length === 1) routeMapObj.setView(bounds[0], 13);
+      routeLastFitKey = key;
+    }
+  }, 0);
+}
+/* END ROUTE PLANNING (JS) */
 
 /* ---- chrome ---- */
 function openSettings(){ openModal('modalSettings'); }
