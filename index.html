@@ -889,6 +889,15 @@ span.why{cursor:default;padding:2px 8px;}
 #routeCanvas.map-dark{background:#0B1B2E;}
 #routeCanvas.map-failed{display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:13px;color:var(--muted);}
 body.modal-open #routeCanvas{visibility:hidden;}
+/* Routes list in the Planning bar, and the tray's extra buttons. */
+.sel-run{display:flex;align-items:center;gap:8px;margin-top:7px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 8px;}
+.sel-run-ic{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.sel-run-nm{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sel-run-nm small{display:block;font-size:11px;font-weight:500;color:var(--muted);}
+.sel-run .map-btn{padding:6px 9px;font-size:11.5px;}
+.map-btn.danger{color:var(--red);border-color:var(--red-bg);background:var(--red-bg);}
+.sel-tray .btn.tray-x{padding:8px 12px;font-size:20px;line-height:1;}
+.sel-tray .btn.tray-un{color:var(--red);background:var(--red-bg);}
 /* ===== END ROUTE PLANNING (CSS) ===== */
 
 /* ===== BEGIN CONSUMABLES FEATURE (CSS) — added 2026-09-22 =====
@@ -2897,6 +2906,7 @@ async function saveRun(run, base, move){
 
 function refreshRouteViews(){
   repaintAllPins();
+  renderSelBar();   // its routes list changes with every save
   renderSelTray();
   if(document.getElementById('view-route').classList.contains('active')) renderRoute();
 }
@@ -2967,7 +2977,8 @@ function renderSelBar(){
     <div class="chip-row" style="margin:6px 0 4px;">${dateChips(selDate, 'setSelDate')}</div>
     <div class="t sub">Tap pins to add or remove them, or drag a box to grab every pin inside it.
       ${isTouchDevice() ? 'Two fingers still move the map.' : 'Scroll to zoom.'}
-      Initials on a pin mean it is already on someone's route that day.</div>`;
+      Initials on a pin mean it is already on someone's route that day.</div>
+    ${selRunsHtml()}`;
 }
 
 function setSelDate(d){
@@ -3070,10 +3081,15 @@ function renderSelTray(){
   const sp = spreadOf(names);
   const farN = Object.keys(sp.far).length;
   const small = names.length > 1
-    ? `<small class="${farN ? 'warn' : ''}">${sp.across.toFixed(1)} mi across${farN ? ` &middot; ${farN} far from the rest` : ''}</small>`
+    ? `<small class="${farN ? 'warn' : ''}">${sp.across.toFixed(1)} mi across${farN ? ` &middot; ${farN} far out` : ''}</small>`
     : `<small>For ${dayPhrase(selDate)}</small>`;
-  tray.innerHTML = `<div class="sum">${names.length ? `${names.length} stop${names.length !== 1 ? 's' : ''} selected` : 'Nothing selected yet'}${small}</div>
-    ${names.length ? `<button class="btn btn-ghost" onclick="selClear()">Clear</button>` : ''}
+  /* Unassign only appears when something selected is on a route that
+     day. Clearing the selection is an X rather than a "Clear" button,
+     so it can't be mistaken for clearing a route. */
+  const onRoutes = names.filter(n => runOfStop(n, selDate)).length;
+  tray.innerHTML = `<div class="sum">${names.length ? `${names.length} selected` : 'Nothing selected yet'}${small}</div>
+    ${names.length ? `<button class="btn btn-ghost tray-x" onclick="selClear()" aria-label="Clear selection">&times;</button>` : ''}
+    ${onRoutes ? `<button class="btn btn-ghost tray-un" onclick="unassignSelected()">Unassign${onRoutes !== names.length ? ` ${onRoutes}` : ''}</button>` : ''}
     <button class="btn btn-primary" onclick="openAssign()" ${names.length ? '' : 'disabled'}>Assign</button>`;
 }
 
@@ -3415,6 +3431,77 @@ async function drawRouteMap(stops){
     }
   }, 0);
 }
+/* ---- Map tab: taking stops off routes ----
+   Two ways, both in Select mode: the routes list in the Planning bar
+   (Select a whole route, or Clear it), and the tray's Unassign button
+   for whichever selected pins are already on a route. Either way the
+   jobs go back to unassigned for that day; nothing about the job itself
+   changes. A cleared route is a run saved with no stops, which the
+   backend deletes. */
+
+function selRunsHtml(){
+  const day = runs.filter(r => r.date === selDate)
+    .sort((a, b) => a.tech.localeCompare(b.tech));
+  if(!day.length) return `<div class="t sub" style="margin-top:8px;">No routes yet for ${dayPhrase(selDate)}.</div>`;
+  return `<div class="t" style="margin-top:10px;">Routes ${dayPhrase(selDate)}</div>` + day.map(r => {
+    const done = r.stops.filter(s => s.done).length;
+    return `<div class="sel-run">
+      <span class="sel-run-ic">${escapeHtml(initials(r.tech))}</span>
+      <div class="sel-run-nm">${escapeHtml(r.tech)}
+        <small>${r.stops.length} stop${r.stops.length !== 1 ? 's' : ''}${done ? ` &middot; ${done} done` : ''}</small></div>
+      <button class="map-btn" onclick="selectRunStops(${qa(r.tech)})">Select</button>
+      <button class="map-btn danger" onclick="clearRun(${qa(r.tech)})">Clear route</button>
+    </div>`;
+  }).join('');
+}
+
+/* Puts every stop on that route into the selection, so a few can be
+   unassigned or handed to someone else without tapping each pin. */
+function selectRunStops(tech){
+  const r = runFor(tech, selDate);
+  if(!r) return;
+  r.stops.forEach(s => { if(!selected.has(s.name)) selAdd(s.name); });
+  repaintAllPins();
+  renderSelTray();
+  showToast(`${r.stops.length} of ${tech}'s stops selected`);
+}
+
+function doneWarning(stops){
+  const n = stops.filter(s => s.done).length;
+  return n ? `\n\n${n} of them ${n === 1 ? 'is' : 'are'} marked done, and that goes too.` : '';
+}
+
+async function clearRun(tech){
+  const r = runFor(tech, selDate);
+  if(!r) return;
+  if(!confirm(`Clear ${tech}'s route for ${dayPhrase(selDate)}? All ${r.stops.length} stop${r.stops.length !== 1 ? 's' : ''} go back to unassigned.` + doneWarning(r.stops))) return;
+  const empty = cloneRun(r);
+  empty.stops = [];
+  if(await saveRun(empty, r.updated, false)) showToast(`${tech}'s route cleared`);
+}
+
+/* Takes the selected stops off whichever routes they're on. One save
+   per technician affected, each checked against that route's current
+   version, re-read after every save so the next one is never stale. */
+async function unassignSelected(){
+  const names = [...selected.keys()].filter(n => runOfStop(n, selDate));
+  if(!names.length) return;
+  const techs = [...new Set(names.map(n => runOfStop(n, selDate).tech))];
+  const stops = names.map(n => runOfStop(n, selDate).stops.find(s => s.name === n));
+  const who = techs.length === 1 ? `${techs[0]}'s route` : `${techs.length} routes`;
+  if(!confirm(`Take ${names.length} stop${names.length !== 1 ? 's' : ''} off ${who} for ${dayPhrase(selDate)}? They go back to unassigned.` + doneWarning(stops))) return;
+  for(const tech of techs){
+    const cur = runFor(tech, selDate);
+    if(!cur) continue;
+    const run = cloneRun(cur);
+    run.stops = run.stops.filter(s => !names.includes(s.name));
+    if(!await saveRun(run, cur.updated, false)) return;   // saveRun has already said why
+  }
+  names.forEach(n => selected.delete(n));
+  refreshRouteViews();
+  showToast(`${names.length} stop${names.length !== 1 ? 's' : ''} unassigned`);
+}
+/* ---- end taking stops off routes ---- */
 /* END ROUTE PLANNING (JS) */
 
 /* ---- chrome ---- */
