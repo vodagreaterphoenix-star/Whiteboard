@@ -268,11 +268,14 @@ nav.bottom{
 nav.bottom .navbtn{
   display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;
   color:var(--muted);font-size:10.5px;font-weight:600;padding:4px 10px;flex:1;position:relative;
+  white-space:nowrap;min-width:0;
 }
 /* MAP FEATURE: a 7th nav button makes the bar tight on small phones.
-   Tightens padding and label size below 400px only. Delete to revert. */
-@media (max-width:400px){
-  nav.bottom .navbtn{padding:4px 4px;font-size:9.5px;}
+   Tightens padding and label size on phones. Raised from 400px to 440px
+   when Route and Dashboard were added: at 414px "New Job" and "Dashboard"
+   were touching. Delete to revert. */
+@media (max-width:440px){
+  nav.bottom .navbtn{padding:4px 2px;font-size:9.5px;letter-spacing:-0.1px;}
   nav.bottom .navbtn svg{width:19px;height:19px;}
 }
 nav.bottom .navbtn svg{width:21px;height:21px;stroke:var(--muted);}
@@ -1131,6 +1134,22 @@ details.hsec{scroll-margin-top:8px;}
     <div id="teamBoard"></div>
   </div>
 
+  <!-- ========================= ROUTE (placeholder) ========================= -->
+  <!-- BEGIN ROUTE VIEW. Nav button is in the bottom nav, ROUTE TAB block. -->
+  <div class="view" id="view-route">
+    <div class="section-title">Route</div>
+    <div class="empty">Coming soon.</div>
+  </div>
+  <!-- END ROUTE VIEW -->
+
+  <!-- ========================= DASHBOARD (placeholder) ========================= -->
+  <!-- BEGIN DASHBOARD VIEW. Nav button is in the bottom nav, DASHBOARD TAB block. -->
+  <div class="view" id="view-dashboard">
+    <div class="section-title">Dashboard</div>
+    <div class="empty">Coming soon.</div>
+  </div>
+  <!-- END DASHBOARD VIEW -->
+
 </div>
 
 <!-- ========================= BOTTOM NAV ========================= -->
@@ -1143,7 +1162,19 @@ details.hsec{scroll-margin-top:8px;}
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
     <span>Map</span>
   </button>
+  <!-- BEGIN ROUTE TAB (placeholder). Touch points: view-route below, nav CSS note. -->
+  <button class="navbtn" data-view="route" onclick="switchView('route')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5"/></svg>
+    <span>Route</span>
+  </button>
+  <!-- END ROUTE TAB -->
   <div class="nav-spacer"></div>
+  <!-- BEGIN DASHBOARD TAB (placeholder). Touch points: view-dashboard below, nav CSS note. -->
+  <button class="navbtn" data-view="dashboard" onclick="switchView('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 17a8.5 8.5 0 1 1 17 0"/><line x1="12" y1="17" x2="16" y2="11"/><circle cx="12" cy="17" r="1.4"/></svg>
+    <span>Dashboard</span>
+  </button>
+  <!-- END DASHBOARD TAB -->
   <button class="navbtn" data-view="team" onclick="switchView('team')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     <span>Team</span>
@@ -1156,7 +1187,7 @@ details.hsec{scroll-margin-top:8px;}
        job is the thing you're most often here to do. -->
   <button class="navbtn scanbtn" onclick="openNewJob()">
     <div class="scanwrap"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
-    New job
+    New Job
   </button>
 </nav>
 
@@ -1206,7 +1237,7 @@ details.hsec{scroll-margin-top:8px;}
 <div class="overlay" id="modalNewJob"><div class="sheet">
   <div class="sheet-handle"></div>
   <div class="sheet-head">
-    <div><div class="sheet-title">New job</div><div class="sheet-sub">Name and address now, the rest whenever</div></div>
+    <div><div class="sheet-title">New Job</div><div class="sheet-sub">Name and address now, the rest whenever</div></div>
     <button class="close-x" onclick="closeModal('modalNewJob')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
@@ -1439,7 +1470,7 @@ function renderBoard(){
 
   const list = document.getElementById('boardList');
   if(!jobs.length){
-    list.innerHTML = `<div class="empty">No jobs match. Tap <b>+ New job</b> to add one.</div>`;
+    list.innerHTML = `<div class="empty">No jobs match. Tap <b>+ New Job</b> to add one.</div>`;
     return;
   }
   list.innerHTML = jobs.map(j => {
