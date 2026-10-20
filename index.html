@@ -820,10 +820,24 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .sel-bar{background:var(--blue-bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
 .sel-bar .t{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.45;}
 .sel-bar .t.sub{font-weight:500;color:var(--muted);font-size:11.5px;}
+/* The tray is a full-width first row INSIDE the nav's own box, and the
+   nav simply grows taller to hold it.
+
+   Why not hang it above the nav: iOS Safari scrolls a fixed bar as one
+   flattened layer the size of that bar. Anything poking outside the bar
+   is left behind and repainted late, which is what made the tray vanish
+   and float while scrolling. Inside the bar, it moves with it exactly.
+
+   Wrapping is safe for the buttons: each is flex:1 with min-width:0, so
+   they always fit on one line; only the tray, at 100% width, takes a row
+   of its own. Negative margins stretch it over the nav's side padding.
+   The extra bottom padding leaves room for the raised New Job button. */
+body.has-tray nav.bottom{ flex-wrap:wrap; box-shadow:0 -4px 14px rgba(0,0,0,.12); }
 .sel-tray{
-  position:fixed;left:0;right:0;bottom:76px;margin:0 auto;max-width:640px;box-sizing:border-box;z-index:85;
-  background:var(--card);border-top:1px solid var(--line);box-shadow:0 -4px 14px rgba(0,0,0,.12);
-  padding:10px 14px;display:none;align-items:center;gap:10px;
+  flex:0 0 calc(100% + 12px);order:-1;box-sizing:border-box;
+  margin:-8px -6px 6px;
+  background:var(--card);border-bottom:1px solid var(--line);
+  padding:10px 14px 16px;display:none;align-items:center;gap:10px;
 }
 .sel-tray.show{display:flex;}
 .sel-tray .sum{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);}
@@ -1251,6 +1265,10 @@ details.hsec{scroll-margin-top:8px;}
 
 <!-- ========================= BOTTOM NAV ========================= -->
 <nav class="bottom">
+  <!-- ROUTE PLANNING: the selection tray, the nav's first row while
+       selecting. It must stay inside the nav's box; see the .sel-tray CSS
+       for why hanging it outside made it float on iPhone. -->
+  <div class="sel-tray" id="selTray"></div>
   <button class="navbtn active" data-view="board" onclick="switchView('board')">
     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
     <span>Board</span>
@@ -1377,10 +1395,9 @@ details.hsec{scroll-margin-top:8px;}
 </div></div>
 
 <!-- ========================= ROUTE PLANNING ========================= -->
-<!-- BEGIN ROUTE PLANNING (HTML). The tray shows while selecting on the
-     Map tab; the sheet confirms who gets the stops. Delete with the
+<!-- BEGIN ROUTE PLANNING (HTML). The sheet confirms who gets the stops.
+     The selection tray lives inside the bottom nav. Delete with the
      ROUTE PLANNING CSS and JS blocks. -->
-<div class="sel-tray" id="selTray"></div>
 
 <div class="overlay" id="modalAssign"><div class="sheet">
   <div class="sheet-handle"></div>
@@ -3041,16 +3058,14 @@ function selAttachBox(canvas){
   window.addEventListener('pointercancel', finish);
 }
 
-/* The bar above the bottom nav while selecting. Measured against the
-   nav each time, because its height changes with the phone's home bar. */
+/* The bar above the bottom nav while selecting. It is part of the nav,
+   so it needs no positioning here. */
 function renderSelTray(){
   const tray = document.getElementById('selTray');
   const show = selMode && document.getElementById('view-map').classList.contains('active');
   tray.classList.toggle('show', show);
   document.body.classList.toggle('has-tray', show);
   if(!show) return;
-  const nav = document.querySelector('nav.bottom');
-  if(nav) tray.style.bottom = nav.offsetHeight + 'px';
   const names = [...selected.keys()];
   const sp = spreadOf(names);
   const farN = Object.keys(sp.far).length;
