@@ -1338,7 +1338,8 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field"><label>Address</label><input id="jdAddr" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
 
   <div class="section-title">The loss</div>
-  <div class="field"><label>Type of loss</label><select id="jdLoss"></select></div>
+  <div class="field"><label>Type of loss</label><select id="jdLoss" onchange="syncWaterCat('jd')"></select></div>
+  <div class="field" id="jdWaterCatField" style="display:none;"><label>Water category</label><select id="jdWaterCat"></select></div>   <!-- WATER CATEGORY -->
   <div class="field"><label>Date of loss</label><input id="jdLossDate" type="date"></div>
   <!-- BEGIN YEAR BUILT. Touch points outside this block: openJob (fill), saveJob (save). -->
   <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="yearBuiltHint()"></div>
@@ -1366,7 +1367,8 @@ details.hsec{scroll-margin-top:8px;}
   </div>
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
   <div class="field"><label>Address</label><input id="njAddress" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
-  <div class="field"><label>Type of loss</label><select id="njLoss"></select></div>
+  <div class="field"><label>Type of loss</label><select id="njLoss" onchange="syncWaterCat('nj')"></select></div>
+  <div class="field" id="njWaterCatField" style="display:none;"><label>Water category</label><select id="njWaterCat"></select></div>   <!-- WATER CATEGORY -->
   <div class="btn-row"><button class="btn btn-primary" onclick="createJob()">Create job</button></div>
   <div class="hint">The customer is shared with the Equipment Tracker, so equipment can be checked out to this job straight away.</div>
 </div></div>
@@ -1486,7 +1488,48 @@ const STAGES = [
   { id:'estimate',   label:'Estimate',   color:'#7C3AED' },
   { id:'complete',   label:'Complete',   color:'var(--green)' }
 ];
-const LOSS_TYPES = ['Water mitigation','Mold remediation','Fire / smoke','Biohazard','Other'];
+const LOSS_TYPES = ['Water Mitigation','Mold Remediation','Fire / Smoke','Biohazard','Other'];
+
+/* BEGIN WATER CATEGORY. Touch points: jdLoss and njLoss markup, openJob,
+   saveJob, openNewJob, createJob, and every place that shows j.loss
+   (board card, map popup, map list), which now use lossLabel(j). */
+const WATER_LOSS = 'Water Mitigation';
+const WATER_CATS = ['Category 1','Category 2','Category 3'];
+
+/* Jobs saved before the capitals changed hold "Water mitigation" etc.
+   Matching ignores case so those jobs still show their type instead of
+   a blank, which would wipe it on the next save. Anything unrecognised
+   is kept as typed. */
+function normLoss(v){
+  if(!v) return '';
+  return LOSS_TYPES.find(t => t.toLowerCase() === String(v).toLowerCase()) || v;
+}
+function lossOptions(current){
+  const cur = normLoss(current);
+  const list = (cur && !LOSS_TYPES.includes(cur)) ? [...LOSS_TYPES, cur] : LOSS_TYPES;
+  return '<option value="">—</option>' + list.map(t => `<option${t === cur ? ' selected' : ''}>${escapeHtml(t)}</option>`).join('');
+}
+function waterCatOptions(current){
+  return '<option value="">Not known yet</option>' +
+    WATER_CATS.map(c => `<option${c === current ? ' selected' : ''}>${c}</option>`).join('');
+}
+/* Shows the category picker only for water jobs. */
+function syncWaterCat(prefix){
+  const isWater = document.getElementById(prefix + 'Loss').value === WATER_LOSS;
+  document.getElementById(prefix + 'WaterCatField').style.display = isWater ? '' : 'none';
+}
+/* The category is only kept while the job is a water job, so changing
+   the type to Mold can't leave a stray "Category 3" behind. */
+function readWaterCat(prefix){
+  return document.getElementById(prefix + 'Loss').value === WATER_LOSS
+    ? document.getElementById(prefix + 'WaterCat').value : '';
+}
+function lossLabel(j){
+  const l = normLoss(j && j.loss);
+  if(!l) return '';
+  return (l === WATER_LOSS && j.waterCat) ? `${l} · ${j.waterCat}` : l;
+}
+/* END WATER CATEGORY */
 
 /* ---- shared state ---- */
 let clients = [];           // [{name, address}] — the tracker's
@@ -1623,7 +1666,7 @@ function renderBoard(){
   list.innerHTML = jobs.map(j => {
     const st = stageOf(j.stage);
     const bits = [];
-    if(j.loss) bits.push(escapeHtml(j.loss));
+    if(j.loss) bits.push(escapeHtml(lossLabel(j)));   // WATER CATEGORY
     if(j.tech) bits.push(escapeHtml(j.tech));
     if(j.equipCount) bits.push(`${j.equipCount} unit${j.equipCount!==1?'s':''} out`);
     return `<div class="eq-card" onclick="openJob(decodeURIComponent('${encodeURIComponent(j.name)}'))">
@@ -2050,8 +2093,9 @@ function openJob(name){
   yearBuiltHint();                                                    // YEAR BUILT
   document.getElementById('jdNotes').value    = j.notes   || '';
 
-  document.getElementById('jdLoss').innerHTML =
-    '<option value="">—</option>' + LOSS_TYPES.map(t=>`<option${t===j.loss?' selected':''}>${t}</option>`).join('');
+  document.getElementById('jdLoss').innerHTML = lossOptions(j.loss);                 // WATER CATEGORY
+  document.getElementById('jdWaterCat').innerHTML = waterCatOptions(j.waterCat);     // WATER CATEGORY
+  syncWaterCat('jd');                                                                // WATER CATEGORY
   document.getElementById('jdTech').innerHTML =
     '<option value="">Unassigned</option>' + [...new Set(personnel)].sort()
       .map(p=>`<option${p===j.tech?' selected':''}>${escapeHtml(p)}</option>`).join('');
@@ -2131,6 +2175,7 @@ async function saveJob(){
   w.carrier  = document.getElementById('jdCarrier').value.trim();
   w.claim    = document.getElementById('jdClaim').value.trim();
   w.loss     = document.getElementById('jdLoss').value;
+  w.waterCat = readWaterCat('jd');   // WATER CATEGORY
   w.lossDate = document.getElementById('jdLossDate').value;
   w.yearBuilt = cleanYearBuilt(document.getElementById('jdYearBuilt').value);   // YEAR BUILT
   w.tech     = document.getElementById('jdTech').value;
@@ -2185,8 +2230,9 @@ async function saveAccess(){
 function openNewJob(){
   document.getElementById('njName').value = '';
   document.getElementById('njAddress').value = '';
-  document.getElementById('njLoss').innerHTML =
-    '<option value="">—</option>' + LOSS_TYPES.map(t=>`<option>${t}</option>`).join('');
+  document.getElementById('njLoss').innerHTML = lossOptions('');                // WATER CATEGORY
+  document.getElementById('njWaterCat').innerHTML = waterCatOptions('');       // WATER CATEGORY
+  syncWaterCat('nj');                                                          // WATER CATEGORY
   attachAddressSuggest('njAddress');
   openModal('modalNewJob');
 }
@@ -2205,6 +2251,7 @@ async function createJob(){
   clients.push({ name, address });
   const w = ensureRecord(name);
   w.loss = document.getElementById('njLoss').value;
+  w.waterCat = readWaterCat('nj');   // WATER CATEGORY
   w.stage = 'new';
 
   await apiPost('saveClientInfo', clients.map(x=>({ name:x.name, address:x.address||'' })));
@@ -2551,7 +2598,7 @@ async function renderMap(){
     const body = g.isShop
       ? '<div class="it">Where equipment lives between jobs.</div>'
       : `<div class="it">${escapeHtml(st.label)}${j.tech ? ` &middot; ${escapeHtml(j.tech)}` : ' &middot; unassigned'}
-           ${j.loss ? `<br>${escapeHtml(j.loss)}` : ''}
+           ${j.loss ? `<br>${escapeHtml(lossLabel(j))}` : ''}
            ${j.claim ? `<br>Claim #${escapeHtml(j.claim)}` : ''}
            ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site` : ''}${routePopupLine(g.label)}</div>`;
     const call = j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g,''))}">Call</a>` : '';
@@ -2647,7 +2694,7 @@ function renderJobsWhere(groups){
         <span>${escapeHtml(st.label)}</span>
         <span class="ids">${j.tech ? escapeHtml(j.tech) : 'unassigned'}</span></div>`);
       if(j.loss) lines.push(`<div class="mw-type"><span class="q">&bull;</span>
-        <span>${escapeHtml(j.loss)}</span>
+        <span>${escapeHtml(lossLabel(j))}</span>
         <span class="ids">${j.claim ? '#' + escapeHtml(j.claim) : ''}</span></div>`);
       if(g.count) lines.push(`<div class="mw-type"><span class="q">${g.count}</span>
         <span>unit${g.count!==1?'s':''} on site</span><span class="ids">equipment</span></div>`);
