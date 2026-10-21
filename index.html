@@ -4,8 +4,9 @@
 <!-- OPERA SCROLL: runs before anything draws, so the page never flashes
      in the other layout. See the OPERA SCROLL CSS block for why. -->
 <script>
-  /* OPT/ is Opera on iPhone, OPR/ is Opera everywhere else. */
-  if(/\b(OPT|OPR)\//.test(navigator.userAgent)) document.documentElement.classList.add('shell-scroll');
+  /* Every Opera tag: OPT/ Opera on iPhone, OPiOS/ Opera Mini on iPhone,
+     OPX/ Opera GX on iPhone, OPR/ and OPRGX/ Opera everywhere else. */
+  if(/\b(OPT|OPiOS|OPX|OPR|OPRGX)\//.test(navigator.userAgent)) document.documentElement.classList.add('shell-scroll');
 </script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1310,6 +1311,11 @@ details.hsec{scroll-margin-top:8px;}
       </div>
       <div class="header-tools">
         <div class="tool-row">
+        <!-- REFRESH BUTTON: reloads the page in any browser, no gesture needed.
+             The backup for wherever pull-to-refresh doesn't work. -->
+        <button id="reloadBtn" onclick="location.reload()" title="Refresh" aria-label="Refresh" style="width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,0.08);border:none;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/></svg>
+        </button>
         <!-- SETTINGS FEATURE: gear icon. Later this is what gets hidden from non-admins. -->
         <button id="settingsToggle" onclick="openSettings()" title="Settings" style="width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,0.08);border:none;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1537,6 +1543,11 @@ details.hsec{scroll-margin-top:8px;}
   </div>
   <div class="section-title">About</div>
   <div class="hint" style="margin-top:0;">Voda Whiteboard. Job management for Greater Phoenix. Shares a Google Sheet with the Equipment Tracker, so customers, addresses and the team stay in step across both.</div>
+  <!-- BUILD INFO: which version this phone is running and what the app
+       detected about the browser. For troubleshooting; filled by
+       renderBuildInfo when Settings opens. -->
+  <div class="section-title">This device</div>
+  <div id="buildInfo" class="hint" style="margin-top:0;font-size:11.5px;line-height:1.6;"></div>
 </div></div>
 
 <!-- ========================= ROUTE PLANNING ========================= -->
@@ -4046,7 +4057,20 @@ async function unassignSelected(){
 /* END ROUTE PLANNING (JS) */
 
 /* ---- chrome ---- */
-function openSettings(){ openModal('modalSettings'); }
+/* BUILD INFO: change WB_BUILD with every release, so a screenshot of
+   Settings shows which version a phone actually loaded. */
+const WB_BUILD = '2026-10-20c';
+function renderBuildInfo(){
+  const shell = document.documentElement.classList.contains('shell-scroll');
+  const standalone = navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  document.getElementById('buildInfo').innerHTML =
+    `Version <b>${WB_BUILD}</b><br>` +
+    `Opera layout: <b>${shell ? 'on' : 'off'}</b> &middot; Home-screen app: <b>${standalone ? 'yes' : 'no'}</b><br>` +
+    `App pull-to-refresh: <b>${(shell || standalone) ? 'on' : 'off (browser handles it)'}</b><br>` +
+    `<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;word-break:break-all;">${escapeHtml(navigator.userAgent)}</span>`;
+}
+function openSettings(){ renderBuildInfo(); openModal('modalSettings'); }
 function toggleTheme(){
   const el = document.documentElement;
   const next = el.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
