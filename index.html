@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
+<!-- OPERA SCROLL: runs before anything draws, so the page never flashes
+     in the other layout. See the OPERA SCROLL CSS block for why. -->
+<script>
+  /* OPT/ is Opera on iPhone, OPR/ is Opera everywhere else. */
+  if(/\b(OPT|OPR)\//.test(navigator.userAgent)) document.documentElement.classList.add('shell-scroll');
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Voda Whiteboard</title>
@@ -792,6 +798,84 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .mw-go{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;}
 /* ===== END MAP FEATURE (CSS) ===== */
 
+/* ===== BEGIN JOB CHECKLIST (CSS), added 2026-10-20 =====
+   The Checklist section in the job, board badges, and the Dashboard.
+   Delete with the JOB CHECKLIST HTML and JS blocks. ===== */
+.ck-sum{font-size:12px;color:var(--muted);margin:-4px 0 8px;}
+.ck-group{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:12px 0 6px;}
+.ck-row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;}
+.ck-row.open{border-color:var(--amber);}
+.ck-top{display:flex;align-items:center;gap:10px;}
+.ck-q{flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--ink);}
+.ck-row.unchecked .ck-q{color:var(--muted);}
+.ck-sug{display:block;font-size:11px;font-weight:700;color:var(--amber);margin-top:2px;}
+.ck-yn{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-shrink:0;}
+.ck-yn button{border:none;background:var(--card);color:var(--muted);font-size:12.5px;font-weight:700;padding:7px 14px;cursor:pointer;}
+.ck-yn button + button{border-left:1px solid var(--line);}
+.ck-yn button.on{background:var(--gray-bg);color:var(--ink);}
+.ck-yn button.on.yes{background:var(--navy);color:#fff;}
+.ck-sts{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;}
+.ck-st{font-size:11.5px;font-weight:700;padding:5px 10px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;}
+.ck-st.on{background:var(--amber-bg);color:var(--amber);border-color:transparent;}
+.ck-st.on.fin{background:var(--green-bg);color:var(--green);}
+.ck-age{font-size:11px;color:var(--muted);margin-top:6px;}
+.ck-age.aging{color:var(--amber);font-weight:700;}
+.ck-age.old{color:var(--red);font-weight:700;}
+.ck-note{width:100%;box-sizing:border-box;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--card);color:var(--ink);}
+.ck-badge{background:var(--amber-bg);color:var(--amber);margin-left:4px;}
+.ck-badge.old{background:var(--red-bg);color:var(--red);}
+.ck-badge.sug{background:var(--blue-bg);color:var(--blue);}
+.ck-none{font-size:11px;color:var(--muted);margin-left:6px;}
+.dash-stages{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:6px;}
+.dash-stage{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 6px;cursor:pointer;text-align:center;}
+.dash-stage .n{display:block;font-size:22px;font-weight:800;line-height:1.1;}
+.dash-stage .l{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:2px;}
+.dash-stage.on{border:2px solid var(--navy);padding:9px 5px;}
+.dash-hold{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:10px 12px;margin-bottom:6px;cursor:pointer;}
+.dash-hold.on{border:2px solid var(--navy);padding:9px 11px;}
+/* Grey when fresh: green would read as "all good" for something still open. */
+.dash-hold .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+.dash-hold .dot.aging{background:var(--amber);}
+.dash-hold .dot.old{background:var(--red);}
+.dash-hold .dot.sug{background:var(--blue);}
+.dash-hold .nm{font-weight:700;font-size:13.5px;color:var(--ink);}
+.dash-hold .ct{margin-left:auto;font-size:11.5px;color:var(--muted);text-align:right;}
+.dash-sec{font-size:12px;font-weight:800;color:var(--ink);border-left:4px solid;padding:2px 0 2px 8px;margin:14px 0 7px;}
+.dash-sec span{color:var(--muted);font-weight:600;margin-left:4px;}
+.dash-job{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;cursor:pointer;}
+.dash-job .nm{font-weight:700;font-size:14px;color:var(--ink);}
+.dash-job .nm span{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin-top:1px;}
+.dash-items{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.dash-item{font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--gray-bg);color:var(--ink);}
+.dash-item.aging{background:var(--amber-bg);color:var(--amber);}
+.dash-item.old{background:var(--red-bg);color:var(--red);}
+.dash-item.sug{background:var(--blue-bg);color:var(--blue);}
+.dash-clear{font-size:11.5px;color:var(--muted);margin-top:4px;}
+/* ===== END JOB CHECKLIST (CSS) ===== */
+
+/* ===== BEGIN OPERA SCROLL (CSS), added 2026-10-20 =====
+   Opera only (the class is set in <head>). Opera's toolbars slide in and
+   out as the page scrolls, resizing the visible area every frame, and the
+   fixed bottom nav was nudged along with each resize: the jitter.
+
+   Here the page itself never scrolls. html is locked to the screen and
+   body becomes the scrolling box, so Opera has no page scroll to react
+   to: its toolbars stay put and the nav stays still. Cost: in Opera the
+   toolbars no longer hide while scrolling.
+
+   Why body works as the scroller: body's overflow only passes up to the
+   page when html's overflow is visible. With html hidden, body keeps it.
+   Delete this block and the script in <head> to revert. ===== */
+html.shell-scroll{height:100%;overflow:hidden;}
+html.shell-scroll body{
+  height:100%;min-height:0;box-sizing:border-box;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  /* No bounce past the ends, which in Opera also pulls the toolbars. */
+  overscroll-behavior-y:none;
+}
+/* ===== END OPERA SCROLL (CSS) ===== */
+
 /* ===== BEGIN ROUTE PLANNING (CSS), added 2026-10-19 =====
    Select mode on the Map tab, the selection tray, the Assign sheet and
    the Route tab. Delete with the ROUTE PLANNING HTML and JS blocks. ===== */
@@ -1265,11 +1349,11 @@ details.hsec{scroll-margin-top:8px;}
   </div>
   <!-- END ROUTE VIEW -->
 
-  <!-- ========================= DASHBOARD (placeholder) ========================= -->
+  <!-- ========================= DASHBOARD ========================= -->
   <!-- BEGIN DASHBOARD VIEW. Nav button is in the bottom nav, DASHBOARD TAB block. -->
   <div class="view" id="view-dashboard">
     <div class="section-title">Dashboard</div>
-    <div class="empty">Coming soon.</div>
+    <div id="dashBody"></div>   <!-- JOB CHECKLIST: drawn by renderDashboard -->
   </div>
   <!-- END DASHBOARD VIEW -->
 
@@ -1334,6 +1418,12 @@ details.hsec{scroll-margin-top:8px;}
 
   <div class="section-title">Stage</div>
   <div class="chip-row" id="jdStages"></div>
+
+  <!-- BEGIN JOB CHECKLIST (HTML). Drawn by renderChecklist; saves itself. -->
+  <div class="section-title">Checklist</div>
+  <div class="ck-sum" id="jdCheckSum"></div>
+  <div id="jdChecklist"></div>
+  <!-- END JOB CHECKLIST (HTML) -->
 
   <div class="section-title">Contact</div>
   <div class="field"><label>Phone</label><input id="jdPhone" type="tel" placeholder="(602) 555-0147"></div>
@@ -1575,7 +1665,9 @@ function stageOf(id){ return STAGES.find(s => s.id === id) || STAGES[0]; }
    changed one waits until the page has stopped scrolling. */
 let lastLoadSig = '';
 let lastScrollAt = 0;
-window.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { passive:true });
+/* Capturing on document hears every scroll, including body's in Opera,
+   where the page itself never scrolls (see OPERA SCROLL). */
+document.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { passive:true, capture:true });
 function renderWhenIdle(){
   if(Date.now() - lastScrollAt < 400){ setTimeout(renderWhenIdle, 250); return; }
   renderAll();
@@ -1641,6 +1733,7 @@ function renderAll(){
   renderTeam();
   if(document.getElementById('view-map').classList.contains('active')) renderMap();
   if(document.getElementById('view-route').classList.contains('active')) renderRoute();   // ROUTE PLANNING
+  if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();   // JOB CHECKLIST
 }
 
 /* ---- the board ---- */
@@ -1691,7 +1784,7 @@ function renderBoard(){
       <div class="ribbon" style="background:${st.color}"></div>
       <div class="body">
         <div class="id">${escapeHtml(j.name)}</div>
-        <div class="meta"><span class="badge" style="background:var(--gray-bg);color:var(--ink);">${st.label}</span>
+        <div class="meta"><span class="badge" style="background:var(--gray-bg);color:var(--ink);">${st.label}</span>${ckBadges(j)}
           ${j.claim ? `<span style="color:var(--muted);font-size:11.5px;margin-left:6px;">#${escapeHtml(j.claim)}</span>` : ''}</div>
         <div class="meta" style="margin-top:3px;color:var(--muted);">${escapeHtml(j.address || 'No address yet')}</div>
         ${bits.length ? `<div class="meta" style="margin-top:3px;color:var(--muted);">${bits.join(' · ')}</div>` : ''}
@@ -2016,6 +2109,7 @@ function switchView(v){
   if(v==='jobs') renderClientsList();
   if(v==='map') renderMap();   // MAP FEATURE: draw the map when the tab opens
   if(v==='route') renderRoute();   // ROUTE PLANNING
+  if(v==='dashboard') renderDashboard();   // JOB CHECKLIST
   renderSelTray();                 // ROUTE PLANNING: the tray only shows on the Map tab
 }
 
@@ -2107,6 +2201,7 @@ function openJob(name){
 
   document.getElementById('jdStages').innerHTML = STAGES.map(s =>
     `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
+  renderChecklist();   // JOB CHECKLIST
 
   document.getElementById('jdPhone').value    = j.phone   || '';
   document.getElementById('jdEmail').value    = j.email   || '';
@@ -2149,6 +2244,11 @@ function renderAccessBlock(j){
 
 function setJobStage(id){
   const w = ensureRecord(currentJob);
+  /* JOB CHECKLIST: a warning, not a block, when testing isn't cleared. */
+  if(id === 'demo' && w.stage !== 'demo'){
+    const warn = checkDemoWarning(allJobs().find(x => x.name === currentJob) || {});
+    if(warn && !confirm(warn)) return;
+  }
   w.stage = id;
   const j = allJobs().find(x => x.name === currentJob);
   document.getElementById('jdStages').innerHTML = STAGES.map(s =>
@@ -2176,7 +2276,7 @@ function yearBuiltHint(){
     el.textContent = 'That doesn\u2019t look like a valid year.';
     el.style.display = '';
   } else if(y && +y < 1980){
-    el.textContent = 'Built before 1980: plan for asbestos testing before any demo.';
+    el.textContent = 'Built before 1980: asbestos testing is flagged in the Checklist above.';
     el.style.display = '';
   } else {
     el.style.display = 'none';
@@ -2773,6 +2873,304 @@ function wbRefreshMap(){
   mapLastFitKey = '';
   renderMap();
 }
+
+/* =====================================================================
+ * BEGIN JOB CHECKLIST (JS), added 2026-10-20
+ *
+ * The questions that can hold a job up: testing, contents, access,
+ * trades and approvals. Answered inside the job (the Checklist section
+ * of the job detail), counted on the board cards, and rolled up on the
+ * Dashboard by stage.
+ *
+ * Each item is answered No or Yes. A Yes becomes an open item with a
+ * status (Needed, Called, Scheduled...) and the date it reached that
+ * status, because what slows a job down is not "a plumber is needed"
+ * but "the plumber was called five days ago and nobody is booked".
+ *
+ * Stored on the job's Whiteboard record:
+ *   checklist: { itemId: { a:'yes'|'no', s:statusId, t:ISO, n:'note' } }
+ * Saved by itself a moment after each tap, not with Save job, so a
+ * status change can't be lost by closing the job without saving.
+ *
+ * Touch points outside this block: the Checklist section in modalJob,
+ * openJob (draws it), setJobStage (Demo warning), renderBoard (badges),
+ * renderAll and switchView (Dashboard), view-dashboard, the 20-second
+ * refresh (waits for a pending save), yearBuiltHint text, and the JOB
+ * CHECKLIST CSS block. No backend change: it rides on saveWhiteboard.
+ * ===================================================================== */
+
+const CHECK_CFG = {
+  /* An open item that has sat at the same status this many days shows
+     amber; twice this many, red. */
+  STALE_DAYS: 3
+};
+
+/* Status lists. done:true means the item is finished and no longer
+   holds anything up. Order is the order the chips appear in. */
+const CHECK_FLOWS = {
+  test:     [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Clear', done:true },
+             { id:'positive', l:'Positive' }, { id:'abated', l:'Abated', done:true }],
+  trade:    [{ id:'needed', l:'Needed' }, { id:'called', l:'Called' }, { id:'scheduled', l:'Scheduled' }, { id:'done', l:'Done', done:true }],
+  task:     [{ id:'needed', l:'Needed' }, { id:'scheduled', l:'Scheduled' }, { id:'done', l:'Done', done:true }],
+  lockbox:  [{ id:'needed', l:'Needed' }, { id:'placed', l:'Placed', done:true }],
+  approval: [{ id:'waiting', l:'Waiting' }, { id:'denied', l:'Denied' }, { id:'approved', l:'Approved', done:true }],
+  signed:   [{ id:'waiting', l:'Waiting' }, { id:'signed', l:'Signed', done:true }]
+};
+
+/* The questions. To add one, add a line here; nothing else changes.
+   always:true means it applies to every job, so it has no No/Yes, only
+   statuses. note is the hint inside its note box. */
+const CHECK_GROUPS = [
+  { id:'testing', label:'Testing', items:[
+    { id:'asbestos', q:'Asbestos testing needed?', short:'Asbestos test', flow:'test', note:'Lab, sample IDs, results' },
+    { id:'lead',     q:'Lead testing needed?',     short:'Lead test',     flow:'test', note:'Lab, sample IDs, results' } ]},
+  { id:'contents', label:'Contents', items:[
+    { id:'contents', q:'Excessive contents?', short:'Contents', flow:'task',  note:'Which rooms, what has to move' },
+    { id:'packout',  q:'Pack-out needed?',    short:'Pack-out', flow:'trade', note:'Who, how much' } ]},
+  { id:'access', label:'Access', items:[
+    { id:'lockbox', q:'Lockbox needed?', short:'Lockbox', flow:'lockbox', note:'', access:true } ]},
+  { id:'trades', label:'Trades', items:[
+    { id:'plumber',     q:'Plumber needed?',     short:'Plumber',     flow:'trade', note:'Company and number' },
+    { id:'roofer',      q:'Roofer needed?',      short:'Roofer',      flow:'trade', note:'Company and number' },
+    { id:'electrician', q:'Electrician needed?', short:'Electrician', flow:'trade', note:'Company and number' },
+    { id:'otherSub',    q:'Other subcontractor needed?', short:'Other sub', flow:'trade', note:'Trade, company and number' } ]},
+  { id:'approvals', label:'Approvals', items:[
+    { id:'workAuth',    q:'Work authorization', short:'Work auth', flow:'signed', always:true, note:'' },
+    { id:'adjuster',    q:'Adjuster approval needed?', short:'Adjuster',    flow:'approval', note:'Adjuster name and number' },
+    { id:'estimateOk',  q:'Estimate approval needed?', short:'Estimate',    flow:'approval', note:'Amount, who is reviewing' },
+    { id:'changeOrder', q:'Change order needed?',      short:'Change order', flow:'approval', note:'What changed' } ]}
+];
+const CHECK_ITEMS = CHECK_GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.id })));
+
+let ckSaveTimer = null;
+let ckPending = false;
+let dashFilter = '';
+
+function ckFlow(it){ return CHECK_FLOWS[it.flow]; }
+function ckStatusOf(it, sid){ return ckFlow(it).find(s => s.id === sid) || null; }
+function daysSince(iso){
+  const t = Date.parse(iso);
+  return isNaN(t) ? 0 : Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+function ageText(d){ return d === 0 ? 'today' : d === 1 ? '1 day' : `${d} days`; }
+function ageClass(d){ return d >= CHECK_CFG.STALE_DAYS * 2 ? 'old' : d >= CHECK_CFG.STALE_DAYS ? 'aging' : ''; }
+
+/* What the job's own details already say. Shown as a suggestion; it
+   never answers the question by itself. The cut-offs are the commonly
+   used ones (asbestos before 1980, lead paint before 1978). */
+function checkSuggest(j, id){
+  const y = +j.yearBuilt;
+  if(id === 'asbestos' && y && y < 1980) return `built ${y}`;
+  if(id === 'lead' && y && y < 1978) return `built ${y}`;
+  return '';
+}
+
+/* Open items (answered Yes, not finished), questions nobody has
+   answered, and which of those the job's details suggest are a Yes. */
+function checkSummary(j){
+  const c = j.checklist || {};
+  const open = [], unchecked = [];
+  CHECK_ITEMS.forEach(it => {
+    const e = c[it.id];
+    if(!e || !e.a){ unchecked.push(it); return; }
+    if(e.a !== 'yes') return;
+    const st = ckStatusOf(it, e.s);
+    if(st && !st.done) open.push({ it, e, st, days: daysSince(e.t) });
+  });
+  return { open, unchecked, suggested: unchecked.filter(it => checkSuggest(j, it.id)), started: unchecked.length < CHECK_ITEMS.length };
+}
+
+/* ---- in the job ---- */
+
+function renderChecklist(){
+  const wrap = document.getElementById('jdChecklist');
+  if(!wrap || !currentJob) return;
+  const j = allJobs().find(x => x.name === currentJob) || {};
+  const c = j.checklist || {};
+  const sum = checkSummary(j);
+  const head = sum.open.length || sum.unchecked.length
+    ? `${sum.open.length} open &middot; ${sum.unchecked.length} not checked yet`
+    : 'Everything checked, nothing open';
+  document.getElementById('jdCheckSum').innerHTML = head;
+
+  wrap.innerHTML = CHECK_GROUPS.map(g => `
+    <div class="ck-group">${g.label}</div>
+    ${g.items.map(it => {
+      const e = c[it.id] || {};
+      const yes = it.always ? !!e.s : e.a === 'yes';
+      const st = yes ? ckStatusOf(it, e.s) : null;
+      const sug = !e.a ? checkSuggest(j, it.id) : '';
+      const cls = !e.a && !it.always ? 'unchecked' : (st && !st.done ? 'open' : '');
+      return `<div class="ck-row ${cls}">
+        <div class="ck-top">
+          <div class="ck-q">${it.q}${sug ? `<span class="ck-sug">Likely yes: ${escapeHtml(sug)}</span>` : ''}</div>
+          ${it.always ? '' : `<div class="ck-yn">
+            <button class="${e.a === 'no' ? 'on' : ''}" onclick="ckAnswer('${it.id}','no')">No</button>
+            <button class="${e.a === 'yes' ? 'on yes' : ''}" onclick="ckAnswer('${it.id}','yes')">Yes</button>
+          </div>`}
+        </div>
+        ${(yes || it.always) ? `
+          <div class="ck-sts">${ckFlow(it).map(s => `<button class="ck-st ${e.s === s.id ? 'on' : ''} ${s.done ? 'fin' : ''}"
+              onclick="ckStatus('${it.id}','${s.id}')">${s.l}</button>`).join('')}</div>
+          ${st && e.t ? `<div class="ck-age ${st.done ? '' : ageClass(daysSince(e.t))}">${st.l} since ${new Date(e.t).toLocaleDateString('en-US', { month:'short', day:'numeric' })} &middot; ${ageText(daysSince(e.t))}</div>` : ''}
+          ${it.note ? `<input class="ck-note" placeholder="${it.note}" value="${escapeHtml(e.n || '')}" onchange="ckNote('${it.id}', this.value)">` : ''}
+          ${it.access ? `<button class="map-btn" style="margin-top:7px;" onclick="openAccess()">Lockbox code is in Site access</button>` : ''}
+        ` : ''}
+      </div>`;
+    }).join('')}`).join('');
+}
+
+function ckEntry(id){
+  const w = ensureRecord(currentJob);
+  w.checklist = w.checklist || {};
+  w.checklist[id] = w.checklist[id] || {};
+  return { w, e: w.checklist[id] };
+}
+function ckChanged(w){
+  w.updated = new Date().toISOString();
+  renderChecklist();
+  ckQueueSave();
+}
+
+/* Tapping the answer that's already chosen clears it back to unchecked,
+   so a wrong tap can be undone. */
+function ckAnswer(id, a){
+  const it = CHECK_ITEMS.find(x => x.id === id);
+  const { w, e } = ckEntry(id);
+  if(e.a === a){ delete w.checklist[id]; ckChanged(w); return; }
+  e.a = a;
+  if(a === 'yes'){ if(!e.s){ e.s = ckFlow(it)[0].id; e.t = new Date().toISOString(); } }
+  else { delete e.s; delete e.t; }
+  ckChanged(w);
+}
+/* The date only moves when the status actually changes; it's how the
+   Dashboard knows how long something has been stuck. */
+function ckStatus(id, sid){
+  const { w, e } = ckEntry(id);
+  e.a = 'yes';
+  if(e.s !== sid){ e.s = sid; e.t = new Date().toISOString(); }
+  ckChanged(w);
+}
+function ckNote(id, v){
+  const { w, e } = ckEntry(id);
+  e.n = String(v).trim();
+  w.updated = new Date().toISOString();
+  ckQueueSave();
+}
+
+/* Several quick taps become one save. */
+function ckQueueSave(){
+  ckPending = true;
+  clearTimeout(ckSaveTimer);
+  ckSaveTimer = setTimeout(async () => {
+    await saveWhiteboard();
+    ckPending = false;
+    renderBoard();
+    if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+  }, 600);
+}
+
+/* A warning, not a block: Demo with testing unresolved asks first. */
+function checkDemoWarning(j){
+  const c = j.checklist || {};
+  const lines = [];
+  ['asbestos', 'lead'].forEach(id => {
+    const it = CHECK_ITEMS.find(x => x.id === id);
+    const e = c[id];
+    const name = id === 'asbestos' ? 'Asbestos' : 'Lead';
+    if(!e || !e.a){ const s = checkSuggest(j, id); if(s) lines.push(`${name} testing hasn't been checked, and the home was ${s}.`); return; }
+    if(e.a !== 'yes') return;
+    const st = ckStatusOf(it, e.s);
+    if(st && !st.done) lines.push(`${name} testing is at "${st.l}", not Clear.`);
+  });
+  return lines.length ? lines.join('\n') + '\n\nMove to Demo anyway?' : '';
+}
+
+/* ---- on the board cards ---- */
+
+function ckBadges(j){
+  if(j.stage === 'complete') return '';
+  const s = checkSummary(j);
+  const oldest = s.open.reduce((m, o) => Math.max(m, o.days), 0);
+  let out = '';
+  if(s.open.length) out += `<span class="badge ck-badge ${ageClass(oldest)}">${s.open.length} open</span>`;
+  if(s.suggested.length) out += `<span class="badge ck-badge sug">${s.suggested.length} to check</span>`;
+  else if(!s.started) out += `<span class="ck-none">Checklist not started</span>`;
+  return out;
+}
+
+/* ---- Dashboard ---- */
+
+function setDashFilter(f){ dashFilter = (dashFilter === f) ? '' : f; renderDashboard(); }
+
+function renderDashboard(){
+  const el = document.getElementById('dashBody');
+  if(!el) return;
+  const jobs = allJobs().filter(j => j.stage !== 'complete')
+    .map(j => ({ j, s: checkSummary(j) }));
+
+  /* Jobs by stage */
+  const stages = STAGES.filter(s => s.id !== 'complete').map(s => {
+    const n = jobs.filter(x => x.j.stage === s.id).length;
+    return `<button class="dash-stage ${dashFilter === 'stage:' + s.id ? 'on' : ''}" onclick="setDashFilter('stage:${s.id}')">
+      <span class="n" style="color:${s.color}">${n}</span><span class="l">${s.label}</span></button>`;
+  }).join('');
+
+  /* What's holding jobs up, one row per checklist group */
+  const holds = CHECK_GROUPS.map(g => {
+    const hit = jobs.filter(x => x.s.open.some(o => o.it.group === g.id));
+    const items = jobs.flatMap(x => x.s.open.filter(o => o.it.group === g.id));
+    const oldest = items.reduce((m, o) => Math.max(m, o.days), 0);
+    return { id: 'group:' + g.id, label: g.label, jobs: hit.length, items: items.length, oldest };
+  }).filter(h => h.jobs);
+  const toCheck = jobs.filter(x => x.s.suggested.length || !x.s.started);
+  const holdRows = holds.map(h => `
+    <div class="dash-hold ${dashFilter === h.id ? 'on' : ''}" onclick="setDashFilter('${h.id}')">
+      <span class="dot ${ageClass(h.oldest)}"></span>
+      <span class="nm">${h.label}</span>
+      <span class="ct">${h.items} open on ${h.jobs} job${h.jobs !== 1 ? 's' : ''} &middot; oldest ${ageText(h.oldest)}</span>
+    </div>`).join('') + (toCheck.length ? `
+    <div class="dash-hold ${dashFilter === 'tocheck' ? 'on' : ''}" onclick="setDashFilter('tocheck')">
+      <span class="dot sug"></span><span class="nm">Needs checking</span>
+      <span class="ct">${toCheck.length} job${toCheck.length !== 1 ? 's' : ''} with questions to answer</span>
+    </div>` : '');
+
+  /* The job list, filtered by whatever was tapped above */
+  let list = jobs;
+  if(dashFilter.startsWith('stage:')) list = list.filter(x => x.j.stage === dashFilter.slice(6));
+  else if(dashFilter.startsWith('group:')) list = list.filter(x => x.s.open.some(o => o.it.group === dashFilter.slice(6)));
+  else if(dashFilter === 'tocheck') list = toCheck;
+  const filterName = dashFilter.startsWith('stage:') ? stageOf(dashFilter.slice(6)).label
+    : dashFilter.startsWith('group:') ? (CHECK_GROUPS.find(g => g.id === dashFilter.slice(6)) || {}).label
+    : dashFilter === 'tocheck' ? 'Needs checking' : '';
+
+  const byStage = STAGES.filter(s => s.id !== 'complete').map(s => {
+    const here = list.filter(x => x.j.stage === s.id)
+      .sort((a, b) => b.s.open.length - a.s.open.length || a.j.name.localeCompare(b.j.name));
+    if(!here.length) return '';
+    return `<div class="dash-sec" style="border-left-color:${s.color}">${s.label} <span>${here.length}</span></div>` +
+      here.map(({ j, s: sum }) => `
+        <div class="dash-job" onclick="openJob(${qa(j.name)})">
+          <div class="nm">${escapeHtml(j.name)}<span>${escapeHtml([lossLabel(j), j.tech].filter(Boolean).join(' · '))}</span></div>
+          ${sum.open.length ? `<div class="dash-items">${sum.open
+              .sort((a, b) => b.days - a.days)
+              .map(o => `<span class="dash-item ${ageClass(o.days)}">${o.it.short}: ${o.st.l} &middot; ${ageText(o.days)}</span>`).join('')}</div>` : ''}
+          ${sum.suggested.length ? `<div class="dash-items">${sum.suggested.map(it =>
+              `<span class="dash-item sug">${it.short}? ${escapeHtml(checkSuggest(j, it.id))}</span>`).join('')}</div>` : ''}
+          ${!sum.open.length && !sum.suggested.length
+              ? `<div class="dash-clear">${sum.started ? 'Nothing holding it up' : 'Checklist not started'}</div>` : ''}
+        </div>`).join('');
+  }).join('');
+
+  el.innerHTML = `
+    <div class="dash-stages">${stages}</div>
+    <div class="section-title">Holding jobs up</div>
+    ${holdRows || `<div class="hint" style="margin-top:0;">Nothing open on any job.</div>`}
+    <div class="section-title" style="display:flex;align-items:center;gap:8px;">Jobs
+      ${filterName ? `<button class="chip active" style="margin-left:auto;" onclick="setDashFilter('')">${escapeHtml(filterName)} &times;</button>` : ''}</div>
+    ${byStage || `<div class="empty">No jobs here.</div>`}`;
+}
+/* END JOB CHECKLIST (JS) */
 
 /* =====================================================================
  * BEGIN ROUTE PLANNING (JS), added 2026-10-19
@@ -3594,7 +3992,9 @@ function initTheme(){
 /* ============ INIT ============ */
 initTheme();
 loadData();
-setInterval(()=>{ if(!document.querySelector('.overlay.active')) loadData(true); }, 20000);
+// JOB CHECKLIST: also waits while a checklist save is on its way, so the
+// refresh can't bring back the old answers before the new ones land.
+setInterval(()=>{ if(!document.querySelector('.overlay.active') && !ckPending) loadData(true); }, 20000);
 
 </script>
 </body>
