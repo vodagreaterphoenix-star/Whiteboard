@@ -812,8 +812,16 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .ck-sum{flex:1;min-width:0;font-size:12px;color:var(--muted);text-align:right;}
 .ck-sum b{color:var(--amber);}
 .ck-caret{width:18px;height:18px;flex-shrink:0;color:var(--muted);transition:transform .18s ease;}
+/* The open-the-job reminder: Voda light cyan, twice, then back to white
+   (the card colour, so dark mode settles on its own card). The delay
+   lets the sheet finish sliding up first. */
+.ck-head.ck-pulse{animation:ckPulse 2.2s ease-in-out .3s 1 both;}
+@keyframes ckPulse{
+  0%,40%,100%{background:var(--card);box-shadow:none;}
+  18%,62%{background:rgba(0,180,216,.18);border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,180,216,.18);}
+}
 .ck-head.folded .ck-caret{transform:rotate(-90deg);}
-@media (prefers-reduced-motion: reduce){ .ck-caret{transition:none;} }
+@media (prefers-reduced-motion: reduce){ .ck-caret{transition:none;} .ck-head.ck-pulse{animation:none;} }
 .ck-group{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:12px 0 6px;}
 .ck-row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;}
 .ck-row.open{border-color:var(--amber);}
@@ -2217,8 +2225,9 @@ function openJob(name){
 
   document.getElementById('jdStages').innerHTML = STAGES.map(s =>
     `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
-  ckOpen = checkSummary(j).unchecked.length > 0;   // JOB CHECKLIST: unfolded until every question is answered
-  renderChecklist();                               // JOB CHECKLIST
+  ckOpen = false;      // JOB CHECKLIST: always starts folded...
+  renderChecklist();
+  ckPulse(j);          // ...and pulses if anything still needs attention
 
   document.getElementById('jdPhone').value    = j.phone   || '';
   document.getElementById('jdEmail').value    = j.email   || '';
@@ -2960,13 +2969,10 @@ const CHECK_GROUPS = [
 const CHECK_ITEMS = CHECK_GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.id })));
 
 let ckSaveTimer = null;
-/* Whether the Checklist is unfolded. Set each time a job opens: open
-   while any question is unanswered, folded once they all are. It does
-   not fold itself the moment the last answer goes in, because that is
-   usually when someone is about to set a step or type a note; it
-   arrives folded the next time the job is opened. The header toggles
-   it either way. */
-let ckOpen = true;
+/* Whether the Checklist is unfolded. Every job opens with it folded;
+   the header pulses instead to draw the eye (see ckPulse). Tapping the
+   header unfolds it. */
+let ckOpen = false;
 let ckPending = false;
 let dashFilter = '';
 
@@ -3007,6 +3013,20 @@ function checkSummary(j){
 /* ---- in the job ---- */
 
 function ckToggle(){ ckOpen = !ckOpen; renderChecklist(); }
+
+/* A reminder when the job opens: the folded header pulses Voda's light
+   cyan twice and settles back to white. Only when there is something to
+   do (a question unanswered or an item open); a finished checklist
+   stays quiet so the pulse keeps meaning something. Removing the class
+   and forcing a reflow restarts the animation on every open. */
+function ckPulse(j){
+  const head = document.getElementById('jdCheckHead');
+  head.classList.remove('ck-pulse');
+  const s = checkSummary(j);
+  if(!s.unchecked.length && !s.open.length) return;
+  void head.offsetWidth;
+  head.classList.add('ck-pulse');
+}
 
 function renderChecklist(){
   const wrap = document.getElementById('jdChecklist');
