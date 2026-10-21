@@ -86,7 +86,10 @@ body{
   /* Room for the dock, plus the home indicator on phones that have one. */
   padding-bottom:calc(84px + env(safe-area-inset-bottom));
   min-height:100vh;
-  min-height:100dvh;   /* dvh tracks the browser chrome as it hides and shows */
+  /* SMOOTH SCROLL: svh, the height with Safari's toolbars showing, never
+     changes. dvh changed on every scroll as the toolbar slid in and out,
+     making the page re-measure itself mid-scroll. */
+  min-height:100svh;
 }
 .app{max-width:640px;margin:0 auto;}
 
@@ -1566,10 +1569,25 @@ function stageOf(id){ return STAGES.find(s => s.id === id) || STAGES[0]; }
 
 
 /* ---- loading ---- */
+/* SMOOTH SCROLL: the 20-second background refresh used to rebuild every
+   list even when nothing had changed, and if that landed mid-scroll the
+   board jumped. Now an unchanged refresh does nothing at all, and a
+   changed one waits until the page has stopped scrolling. */
+let lastLoadSig = '';
+let lastScrollAt = 0;
+window.addEventListener('scroll', () => { lastScrollAt = Date.now(); }, { passive:true });
+function renderWhenIdle(){
+  if(Date.now() - lastScrollAt < 400){ setTimeout(renderWhenIdle, 250); return; }
+  renderAll();
+}
+
 async function loadData(quiet){
   if(!quiet) setSyncing(true);
   try{
     const data = await apiGetAll();
+    const sig = JSON.stringify(data);
+    if(quiet && sig === lastLoadSig){ setSyncing(false); return; }
+    lastLoadSig = sig;
     clients    = data.clients    || [];
     personnel  = data.personnel  || [];
     inventory  = data.inventory  || [];
@@ -1590,7 +1608,7 @@ async function loadData(quiet){
       showToast('Backend needs updating — deploy the new Code.gs to save job details');
     }
     setSyncing(false);
-    renderAll();
+    if(quiet) renderWhenIdle(); else renderAll();   // SMOOTH SCROLL
   }catch(e){
     console.error('load failed', e);
     setSyncing(false, true);
@@ -2013,6 +2031,11 @@ function switchView(v){
     const t = e.touches ? e.touches[0] : e;
     startY = t.clientY; lastT = Date.now(); dy = 0;
     sheet.classList.add('dragging'); sheet.classList.remove('snapback');
+    /* SMOOTH SCROLL: listen to finger movement only while a handle is
+       being dragged. A page-wide non-passive touchmove listener makes
+       iOS Safari wait on this script for every frame of every scroll,
+       on every tab, which is what made the Board stutter. */
+    document.addEventListener('touchmove', onMove, {passive:false});
   }
   function onMove(e){
     if(!sheet) return;
@@ -2023,6 +2046,7 @@ function switchView(v){
     if(e.cancelable) e.preventDefault();
   }
   function onEnd(){
+    document.removeEventListener('touchmove', onMove, {passive:false});   // SMOOTH SCROLL
     if(!sheet) return;
     const v = dy / Math.max(1, (Date.now()-lastT)+16);
     const go = dy > CLOSE_PX || v > FLICK_V;
@@ -2032,8 +2056,9 @@ function switchView(v){
     else { el.classList.add('snapback'); setTimeout(()=>el.classList.remove('snapback'),200); }
   }
   document.addEventListener('touchstart', onStart, {passive:true});
-  document.addEventListener('touchmove',  onMove,  {passive:false});
+  // touchmove is added in onStart and removed in onEnd. See SMOOTH SCROLL.
   document.addEventListener('touchend',   onEnd);
+  document.addEventListener('touchcancel', onEnd);
   document.addEventListener('mousedown',  onStart);
   document.addEventListener('mousemove',  e=>{ if(sheet) onMove(e); });
   document.addEventListener('mouseup',    onEnd);
