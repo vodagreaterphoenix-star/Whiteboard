@@ -865,6 +865,60 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .dash-item.old{background:var(--red-bg);color:var(--red);}
 .dash-item.sug{background:var(--blue-bg);color:var(--blue);}
 .dash-clear{font-size:11.5px;color:var(--muted);margin-top:4px;}
+/* ---- Dashboard cards: job mix, specialist testing, abatement ---- */
+.dash-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:12px;}
+.dash-card.hot{border-color:#C2410C;}
+.dash-card-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink);margin-bottom:10px;}
+.dash-card-h .sub{font-weight:600;text-transform:none;letter-spacing:0;color:var(--muted);}
+.dash-card-h .seg{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.dash-card-h .seg button{border:none;background:var(--card);color:var(--muted);font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;text-transform:none;letter-spacing:0;}
+.dash-card-h .seg button.on{background:var(--navy);color:#fff;}
+.mix{display:flex;align-items:center;gap:14px;}
+.donut{width:132px;height:132px;flex-shrink:0;}
+.donut-n{font-size:26px;font-weight:800;fill:var(--ink);}
+.donut-l{font-size:11px;font-weight:600;fill:var(--muted);}
+.mix-legend{flex:1;min-width:0;}
+.mix-row{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:12.5px;}
+.mix-row.on{background:var(--gray-bg);}
+.mix-row i{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.mix-row .nm{flex:1;min-width:0;color:var(--ink);font-weight:600;line-height:1.25;}
+.mix-row .ct{font-weight:800;color:var(--ink);}
+.mix-row .ct small{font-weight:500;color:var(--muted);margin-left:5px;}
+.mix-extra{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:10px;padding:9px 10px;border-top:1px dashed var(--line);cursor:pointer;border-radius:8px;}
+.mix-extra.on{background:var(--gray-bg);}
+.mix-extra .nm{font-size:13px;font-weight:700;color:var(--ink);}
+.mix-extra .ct{margin-left:auto;font-size:18px;font-weight:800;color:#7C3AED;}
+.mix-extra small{flex-basis:100%;font-size:11px;color:var(--muted);}
+.dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.dash-stat{background:var(--gray-bg);border:2px solid transparent;border-radius:11px;padding:9px 4px;cursor:pointer;text-align:center;}
+.dash-stat.on{border-color:var(--navy);}
+.dash-stat .n{display:block;font-size:22px;font-weight:800;color:var(--ink);line-height:1.1;}
+.dash-stat .l{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:2px;}
+.dash-stat.hot .n{color:#C2410C;}
+.dash-stat.ok .n{color:var(--green);}
+.dash-note{font-size:11.5px;color:var(--muted);margin-top:8px;}
+.ab-profiles{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;background:var(--gray-bg);cursor:pointer;font-size:12px;color:var(--muted);border:2px solid transparent;}
+.ab-profiles.on{border-color:var(--navy);}
+.ab-profiles b{color:var(--ink);font-size:13px;}
+.ab-profiles .big{font-size:26px;font-weight:800;color:var(--ink);line-height:1;}
+.ab-profiles .big small{font-size:13px;font-weight:600;color:var(--muted);}
+.ab-steps{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 4px;}
+.ab-steps span{font-size:11.5px;color:var(--muted);background:var(--gray-bg);border-radius:99px;padding:3px 9px;}
+.ab-steps b{color:var(--ink);margin-left:3px;}
+.ab-job{border-top:1px solid var(--line);padding:9px 0 3px;margin-top:6px;cursor:pointer;}
+.ab-job .nm{font-weight:700;font-size:13.5px;color:var(--ink);}
+.ab-job .nm span{font-weight:500;font-size:11.5px;color:var(--muted);margin-left:6px;}
+.ab-sqs{display:flex;gap:10px;margin-top:7px;flex-wrap:wrap;}
+.ab-sq{display:flex;flex-direction:column;align-items:center;gap:3px;width:50px;}
+.ab-sq i{width:20px;height:20px;border-radius:5px;border:2px solid var(--line);box-sizing:border-box;}
+.ab-sq.going i{background:var(--amber-bg);border-color:var(--amber);}
+.ab-sq.done i{background:var(--green);border-color:var(--green);}
+.ab-sq.bad i{background:var(--red-bg);border-color:var(--red);}
+.ab-sq span{font-size:9.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.15;}
+.hot-tag{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#C2410C;border-radius:5px;padding:1px 5px;margin-left:7px;vertical-align:middle;}
+.ck-group.hot{color:#C2410C;}
+/* Positive finishes the test but is bad news: hot orange, not done green. */
+.ck-st.on.hot{background:rgba(194,65,12,.12);color:#C2410C;}
 /* ===== END JOB CHECKLIST (CSS) ===== */
 
 /* ===== BEGIN ROUTE PLANNING (CSS), added 2026-10-19 =====
@@ -1581,7 +1635,10 @@ const STAGES = [
   { id:'estimate',   label:'Estimate',   color:'#7C3AED' },
   { id:'complete',   label:'Complete',   color:'var(--green)' }
 ];
-const LOSS_TYPES = ['Water Mitigation','Mold Remediation','Fire / Smoke','Biohazard','Other'];
+const LOSS_TYPES = ['Water Mitigation','Mold Remediation','Asbestos Abatement','Fire / Smoke','Biohazard','Other'];
+/* ASBESTOS ABATEMENT: a job that is only abatement, with no water loss.
+   Counts as hot from the start (see isHot). */
+const ABATE_LOSS = 'Asbestos Abatement';
 
 /* BEGIN WATER CATEGORY. Touch points: jdLoss and njLoss markup, openJob,
    saveJob, openNewJob, createJob, and every place that shows j.loss
@@ -2909,8 +2966,20 @@ const CHECK_CFG = {
 /* Status lists. done:true means the item is finished and no longer
    holds anything up. Order is the order the chips appear in. */
 const CHECK_FLOWS = {
+  /* Asbestos: Positive finishes the testing question and makes the job
+     hot; the abatement steps below carry it from there, so a hot job is
+     never also shown as a stuck test. */
+  asbTest:  [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Clear', done:true },
+             { id:'positive', l:'Positive', done:true }],
+  /* Lead has no follow-on steps yet, so Positive stays open until it is
+     marked Abated. */
   test:     [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Clear', done:true },
              { id:'positive', l:'Positive' }, { id:'abated', l:'Abated', done:true }],
+  /* ASBESTOS ABATEMENT steps */
+  profile:  [{ id:'requested', l:'Requested' }, { id:'setup', l:'Set up', done:true }],
+  plan:     [{ id:'drafting', l:'Drafting' }, { id:'ready', l:'Ready', done:true }],
+  abate:    [{ id:'scheduled', l:'Scheduled' }, { id:'inprogress', l:'In progress' }, { id:'done', l:'Done', done:true }],
+  clearance:[{ id:'scheduled', l:'Scheduled' }, { id:'failed', l:'Failed' }, { id:'passed', l:'Passed', done:true }],
   trade:    [{ id:'needed', l:'Needed' }, { id:'called', l:'Called' }, { id:'scheduled', l:'Scheduled' }, { id:'done', l:'Done', done:true }],
   task:     [{ id:'needed', l:'Needed' }, { id:'scheduled', l:'Scheduled' }, { id:'done', l:'Done', done:true }],
   lockbox:  [{ id:'needed', l:'Needed' }, { id:'placed', l:'Placed', done:true }],
@@ -2923,8 +2992,26 @@ const CHECK_FLOWS = {
    statuses. note is the hint inside its note box. */
 const CHECK_GROUPS = [
   { id:'testing', label:'Testing', items:[
-    { id:'asbestos', q:'Asbestos testing needed?', short:'Asbestos test', flow:'test', note:'Lab, sample IDs, results' },
+    { id:'asbestos', q:'Asbestos testing needed?', short:'Asbestos test', flow:'asbTest', note:'Lab, sample IDs, results' },
     { id:'lead',     q:'Lead testing needed?',     short:'Lead test',     flow:'test', note:'Lab, sample IDs, results' } ]},
+  /* ASBESTOS ABATEMENT. Each step has a when(): it only appears once the
+     job reaches it, so a new job shows none of these. A step that
+     already holds an answer always shows (see ckVisible), so changing an
+     earlier step can never hide work already recorded.
+     The profile and plan appear together because they can run side by
+     side; abatement waits for both, since the waste can't go anywhere
+     without the WM profile. */
+  { id:'abatement', label:'Asbestos abatement', items:[
+    { id:'abProfile',   q:'WM waste profile', short:'WM profile', flow:'profile', always:true,
+      note:'Profile number, WM contact', when: j => isHot(j) },
+    { id:'abPlan',      q:'Abatement plan engineered', short:'Plan', flow:'plan', always:true,
+      note:'Containment, crew, how it gets done', when: j => isHot(j) },
+    { id:'abWork',      q:'Abatement', short:'Abatement', flow:'abate', always:true,
+      note:'Crew and dates', when: j => ckDone(j, 'abProfile') && ckDone(j, 'abPlan') },
+    { id:'abClearance', q:'Clearance test', short:'Clearance', flow:'clearance', always:true,
+      note:'Who is testing, results', when: j => ['inprogress', 'done'].includes(ckSid(j, 'abWork')) },
+    { id:'abMoreTests', q:'Additional tests needed?', short:'More tests', flow:'task',
+      note:'Which tests, who is doing them', when: j => !!ckSid(j, 'abClearance') } ]},
   { id:'contents', label:'Contents', items:[
     { id:'contents', q:'Excessive contents?', short:'Contents', flow:'task',  note:'Which rooms, what has to move' },
     { id:'packout',  q:'Pack-out needed?',    short:'Pack-out', flow:'trade', note:'Who, how much' } ]},
@@ -2943,6 +3030,24 @@ const CHECK_GROUPS = [
 ];
 const CHECK_ITEMS = CHECK_GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.id })));
 
+/* ASBESTOS ABATEMENT helpers */
+function ckSid(j, id){ const e = (j.checklist || {})[id]; return e ? e.s : undefined; }
+function ckDone(j, id){
+  const it = CHECK_ITEMS.find(x => x.id === id);
+  const st = it ? ckStatusOf(it, ckSid(j, id)) : null;
+  return !!(st && st.done);
+}
+/* Hot: asbestos tested positive, or a job that is abatement only. */
+function isHot(j){ return ckSid(j, 'asbestos') === 'positive' || normLoss(j.loss) === ABATE_LOSS; }
+function isLeadHot(j){ const s = ckSid(j, 'lead'); return s === 'positive' || s === 'abated'; }
+/* An item shows when it has no when(), when its when() is met, or when
+   it already holds an answer. */
+function ckVisible(j, it){
+  if(!it.when) return true;
+  const e = (j.checklist || {})[it.id];
+  return !!(e && (e.a || e.s)) || it.when(j);
+}
+
 let ckSaveTimer = null;
 /* Whether the Checklist is unfolded. Every job opens with it folded;
    the header pulses instead to draw the eye (see ckPulse). Tapping the
@@ -2950,6 +3055,7 @@ let ckSaveTimer = null;
 let ckOpen = false;
 let ckPending = false;
 let dashFilter = '';
+let dashScope = 'open';   // Job mix: open jobs, or every job including finished ones
 
 function ckFlow(it){ return CHECK_FLOWS[it.flow]; }
 function ckStatusOf(it, sid){ return ckFlow(it).find(s => s.id === sid) || null; }
@@ -2975,14 +3081,15 @@ function checkSuggest(j, id){
 function checkSummary(j){
   const c = j.checklist || {};
   const open = [], unchecked = [];
-  CHECK_ITEMS.forEach(it => {
+  const items = CHECK_ITEMS.filter(it => ckVisible(j, it));   // steps not reached yet don't count
+  items.forEach(it => {
     const e = c[it.id];
     if(!e || !e.a){ unchecked.push(it); return; }
     if(e.a !== 'yes') return;
     const st = ckStatusOf(it, e.s);
     if(st && !st.done) open.push({ it, e, st, days: daysSince(e.t) });
   });
-  return { open, unchecked, suggested: unchecked.filter(it => checkSuggest(j, it.id)), started: unchecked.length < CHECK_ITEMS.length };
+  return { open, unchecked, suggested: unchecked.filter(it => checkSuggest(j, it.id)), started: unchecked.length < items.length };
 }
 
 /* ---- in the job ---- */
@@ -3020,9 +3127,12 @@ function renderChecklist(){
   wrap.style.display = ckOpen ? '' : 'none';
   if(!ckOpen) return;
 
-  wrap.innerHTML = CHECK_GROUPS.map(g => `
-    <div class="ck-group">${g.label}</div>
-    ${g.items.map(it => {
+  wrap.innerHTML = CHECK_GROUPS.map(g => {
+    const shown = g.items.filter(it => ckVisible(j, it));
+    if(!shown.length) return '';
+    return `
+    <div class="ck-group ${g.id === 'abatement' ? 'hot' : ''}">${g.label}${g.id === 'abatement' ? '<span class="hot-tag">Hot</span>' : ''}</div>
+    ${shown.map(it => {
       const e = c[it.id] || {};
       const yes = it.always ? !!e.s : e.a === 'yes';
       const st = yes ? ckStatusOf(it, e.s) : null;
@@ -3037,14 +3147,15 @@ function renderChecklist(){
           </div>`}
         </div>
         ${(yes || it.always) ? `
-          <div class="ck-sts">${ckFlow(it).map(s => `<button class="ck-st ${e.s === s.id ? 'on' : ''} ${s.done ? 'fin' : ''}"
+          <div class="ck-sts">${ckFlow(it).map(s => `<button class="ck-st ${e.s === s.id ? 'on' : ''} ${s.done ? 'fin' : ''} ${s.id === 'positive' ? 'hot' : ''}"
               onclick="ckStatus('${it.id}','${s.id}')">${s.l}</button>`).join('')}</div>
           ${st && e.t ? `<div class="ck-age ${st.done ? '' : ageClass(daysSince(e.t))}">${st.l} since ${new Date(e.t).toLocaleDateString('en-US', { month:'short', day:'numeric' })} &middot; ${ageText(daysSince(e.t))}</div>` : ''}
           ${it.note ? `<input class="ck-note" placeholder="${it.note}" value="${escapeHtml(e.n || '')}" onchange="ckNote('${it.id}', this.value)">` : ''}
           ${it.access ? `<button class="map-btn" style="margin-top:7px;" onclick="openAccess()">Lockbox code is in Site access</button>` : ''}
         ` : ''}
       </div>`;
-    }).join('')}`).join('');
+    }).join('')}`;
+  }).join('');
 }
 
 function ckEntry(id){
@@ -3101,7 +3212,16 @@ function ckQueueSave(){
 function checkDemoWarning(j){
   const c = j.checklist || {};
   const lines = [];
+  /* ASBESTOS ABATEMENT: on a hot job, what matters before demo is the
+     disposal profile and the plan. */
+  if(isHot(j)){
+    const missing = [];
+    if(!ckDone(j, 'abProfile')) missing.push('the WM waste profile isn\u2019t set up');
+    if(!ckDone(j, 'abPlan')) missing.push('the abatement plan isn\u2019t ready');
+    if(missing.length) lines.push(`Asbestos is positive, and ${missing.join(' and ')}.`);
+  }
   ['asbestos', 'lead'].forEach(id => {
+    if(id === 'asbestos' && isHot(j)) return;   // covered above
     const it = CHECK_ITEMS.find(x => x.id === id);
     const e = c[id];
     const name = id === 'asbestos' ? 'Asbestos' : 'Lead';
@@ -3129,12 +3249,81 @@ function ckBadges(j){
 /* ---- Dashboard ---- */
 
 function setDashFilter(f){ dashFilter = (dashFilter === f) ? '' : f; renderDashboard(); }
+function setDashScope(v){ dashScope = v; renderDashboard(); }
+
+/* ---- Job mix: one slice per job, so the slices always add up ----
+   Job type comes from the loss type, with water jobs split by whether
+   they went hot. An estimate can follow any type of job, so estimates
+   are counted beside the chart, not as a slice of it. */
+const JOB_TYPES = [
+  { id:'mit',      label:'Mitigation',              color:'#00B4D8' },
+  { id:'mitAbate', label:'Mitigation + Abatement',  color:'#7C3AED' },
+  { id:'abate',    label:'Abatement only',          color:'#C2410C' },
+  { id:'mold',     label:'Mold',                    color:'#2E9E6B' },
+  { id:'fire',     label:'Fire / Smoke',            color:'#D6455B' },
+  { id:'bio',      label:'Biohazard',               color:'#C98A18' },
+  { id:'other',    label:'Other',                   color:'#8A94A0' },
+  { id:'unset',    label:'Type not set',            color:'#CBD2D9' }
+];
+function jobType(j){
+  const loss = normLoss(j.loss);
+  if(loss === ABATE_LOSS) return 'abate';
+  if(loss === WATER_LOSS) return isHot(j) ? 'mitAbate' : 'mit';
+  if(loss === 'Mold Remediation') return 'mold';
+  if(loss === 'Fire / Smoke') return 'fire';
+  if(loss === 'Biohazard') return 'bio';
+  if(loss === 'Other') return 'other';
+  return isHot(j) ? 'abate' : 'unset';
+}
+
+/* A ring of arcs drawn with circle dashes: each slice is the same
+   circle with only its own stretch of the outline painted. */
+function donutSvg(parts, total){
+  const R = 52, C = 2 * Math.PI * R;
+  let off = 0;
+  const arcs = parts.map(p => {
+    const len = C * p.n / total;
+    const gap = parts.length > 1 ? Math.min(1.5, len / 4) : 0;   // hairline between slices
+    const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="${p.color}" stroke-width="22"
+      stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}"
+      transform="rotate(-90 70 70)" style="cursor:pointer" onclick="setDashFilter('type:${p.id}')">
+      <title>${p.label}: ${p.n}</title></circle>`;
+    off += len;
+    return arc;
+  }).join('');
+  return `<svg class="donut" viewBox="0 0 140 140" role="img" aria-label="Job mix">
+    <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--gray-bg)" stroke-width="22"/>
+    ${arcs}
+    <text x="70" y="68" text-anchor="middle" class="donut-n">${total}</text>
+    <text x="70" y="86" text-anchor="middle" class="donut-l">job${total !== 1 ? 's' : ''}</text>
+  </svg>`;
+}
+
+/* The little squares: one per abatement step, appearing only once the
+   job has reached that step. Filled when done, tinted while under way,
+   outlined when it has appeared but nobody has started it. */
+const AB_STEPS = ['abProfile', 'abPlan', 'abWork', 'abClearance', 'abMoreTests'];
+function abSquares(j){
+  return `<div class="ab-sqs">${AB_STEPS.map(id => {
+    const it = CHECK_ITEMS.find(x => x.id === id);
+    if(!ckVisible(j, it)) return '';
+    const e = (j.checklist || {})[id] || {};
+    let cls = 'todo', state = 'Not started';
+    if(id === 'abMoreTests' && e.a === 'no'){ cls = 'done'; state = 'None needed'; }
+    else if(e.s){
+      const st = ckStatusOf(it, e.s);
+      cls = st && st.done ? 'done' : (e.s === 'failed' ? 'bad' : 'going');
+      state = st ? st.l : e.s;
+    }
+    return `<div class="ab-sq ${cls}" title="${it.short}: ${state}"><i></i><span>${it.short}</span></div>`;
+  }).join('')}</div>`;
+}
 
 function renderDashboard(){
   const el = document.getElementById('dashBody');
   if(!el) return;
-  const jobs = allJobs().filter(j => j.stage !== 'complete')
-    .map(j => ({ j, s: checkSummary(j) }));
+  const every = allJobs();
+  const jobs = every.filter(j => j.stage !== 'complete').map(j => ({ j, s: checkSummary(j) }));
 
   /* Jobs by stage */
   const stages = STAGES.filter(s => s.id !== 'complete').map(s => {
@@ -3142,6 +3331,85 @@ function renderDashboard(){
     return `<button class="dash-stage ${dashFilter === 'stage:' + s.id ? 'on' : ''}" onclick="setDashFilter('stage:${s.id}')">
       <span class="n" style="color:${s.color}">${n}</span><span class="l">${s.label}</span></button>`;
   }).join('');
+
+  /* Job mix */
+  const mixJobs = dashScope === 'all' ? every : every.filter(j => j.stage !== 'complete');
+  const parts = JOB_TYPES.map(t => ({ ...t, n: mixJobs.filter(j => jobType(j) === t.id).length })).filter(p => p.n);
+  const estimates = mixJobs.filter(j => j.stage === 'estimate').length;
+  const mix = mixJobs.length ? `
+    <div class="dash-card">
+      <div class="dash-card-h">Job mix
+        <span class="seg">
+          <button class="${dashScope === 'open' ? 'on' : ''}" onclick="setDashScope('open')">Open</button>
+          <button class="${dashScope === 'all' ? 'on' : ''}" onclick="setDashScope('all')">All</button>
+        </span></div>
+      <div class="mix">
+        ${donutSvg(parts, mixJobs.length)}
+        <div class="mix-legend">${parts.map(p => `
+          <div class="mix-row ${dashFilter === 'type:' + p.id ? 'on' : ''}" onclick="setDashFilter('type:${p.id}')">
+            <i style="background:${p.color}"></i><span class="nm">${p.label}</span>
+            <span class="ct">${p.n}<small>${Math.round(p.n * 100 / mixJobs.length)}%</small></span></div>`).join('')}
+        </div>
+      </div>
+      <div class="mix-extra ${dashFilter === 'estimates' ? 'on' : ''}" onclick="setDashFilter('estimates')">
+        <span class="nm">Estimates requested</span><span class="ct">${estimates}</span>
+        <small>Jobs at the Estimate stage. Any type of job can need one, so they aren't a slice.</small>
+      </div>
+    </div>` : '';
+
+  /* Specialist testing: shows only once any job needs a test */
+  const testing = jobs.filter(x => ['asbestos', 'lead'].some(id => ((x.j.checklist || {})[id] || {}).a === 'yes') || isHot(x.j));
+  let testCard = '';
+  if(testing.length){
+    const hotA = jobs.filter(x => isHot(x.j)).length;
+    const hotL = jobs.filter(x => isLeadHot(x.j)).length;
+    const hot = jobs.filter(x => isHot(x.j) || isLeadHot(x.j)).length;
+    const waiting = testing.filter(x => ['asbestos', 'lead'].some(id => ['needed', 'sampled'].includes(ckSid(x.j, id)))).length;
+    const clear = testing.filter(x => !isHot(x.j) && !isLeadHot(x.j) &&
+      ['asbestos', 'lead'].every(id => { const e = (x.j.checklist || {})[id]; return !e || e.a !== 'yes' || e.s === 'clear'; })).length;
+    const tile = (f, n, l, cls) => `<button class="dash-stat ${cls} ${dashFilter === f ? 'on' : ''}" onclick="setDashFilter('${f}')"><span class="n">${n}</span><span class="l">${l}</span></button>`;
+    testCard = `
+    <div class="dash-card">
+      <div class="dash-card-h">Specialist testing <span class="sub">${testing.length} job${testing.length !== 1 ? 's' : ''}</span></div>
+      <div class="dash-stats">
+        ${tile('hot', hot, 'Hot', 'hot')}
+        ${tile('testwait', waiting, 'Waiting on results', '')}
+        ${tile('testclear', clear, 'Clear', 'ok')}
+      </div>
+      ${hot ? `<div class="dash-note">Asbestos ${hotA}${hotL ? ` &middot; Lead ${hotL}` : ''}</div>` : ''}
+    </div>`;
+  }
+
+  /* Asbestos abatement: shows only once a job is hot */
+  const hotJobs = jobs.filter(x => isHot(x.j));
+  let abCard = '';
+  if(hotJobs.length){
+    const count = (id, test) => hotJobs.filter(x => test(ckSid(x.j, id))).length;
+    const profSet = count('abProfile', s => s === 'setup');
+    const profReq = count('abProfile', s => s === 'requested');
+    const profNone = hotJobs.length - profSet - profReq;
+    const planReady = count('abPlan', s => s === 'ready');
+    const abDone = count('abWork', s => s === 'done');
+    const clearPass = count('abClearance', s => s === 'passed');
+    abCard = `
+    <div class="dash-card hot">
+      <div class="dash-card-h">Asbestos abatement <span class="sub">${hotJobs.length} hot job${hotJobs.length !== 1 ? 's' : ''}</span></div>
+      <div class="ab-profiles ${dashFilter === 'noprofile' ? 'on' : ''}" onclick="setDashFilter('noprofile')">
+        <div class="big">${profSet}<small> of ${hotJobs.length}</small></div>
+        <div><b>WM profiles set up</b><br>${profReq} requested &middot; ${profNone} not started</div>
+      </div>
+      <div class="ab-steps">
+        <span>Plan ready <b>${planReady}</b></span>
+        <span>Abated <b>${abDone}</b></span>
+        <span>Clearance passed <b>${clearPass}</b></span>
+      </div>
+      ${hotJobs.sort((a, b) => a.j.name.localeCompare(b.j.name)).map(({ j }) => `
+        <div class="ab-job" onclick="openJob(${qa(j.name)})">
+          <div class="nm">${escapeHtml(j.name)}<span>${escapeHtml(stageOf(j.stage).label)}</span></div>
+          ${abSquares(j)}
+        </div>`).join('')}
+    </div>`;
+  }
 
   /* What's holding jobs up, one row per checklist group */
   const holds = CHECK_GROUPS.map(g => {
@@ -3162,35 +3430,51 @@ function renderDashboard(){
       <span class="ct">${toCheck.length} job${toCheck.length !== 1 ? 's' : ''} with questions to answer</span>
     </div>` : '');
 
-  /* The job list, filtered by whatever was tapped above */
-  let list = jobs;
-  if(dashFilter.startsWith('stage:')) list = list.filter(x => x.j.stage === dashFilter.slice(6));
-  else if(dashFilter.startsWith('group:')) list = list.filter(x => x.s.open.some(o => o.it.group === dashFilter.slice(6)));
-  else if(dashFilter === 'tocheck') list = toCheck;
-  const filterName = dashFilter.startsWith('stage:') ? stageOf(dashFilter.slice(6)).label
-    : dashFilter.startsWith('group:') ? (CHECK_GROUPS.find(g => g.id === dashFilter.slice(6)) || {}).label
-    : dashFilter === 'tocheck' ? 'Needs checking' : '';
+  /* Every filter in one place: what it keeps, and what it's called. */
+  const FILTERS = {
+    hot:       { name:'Hot',                 keep: x => isHot(x.j) || isLeadHot(x.j) },
+    testwait:  { name:'Waiting on results',  keep: x => ['asbestos', 'lead'].some(id => ['needed', 'sampled'].includes(ckSid(x.j, id))) },
+    testclear: { name:'Testing clear',       keep: x => testing.includes(x) && !isHot(x.j) && !isLeadHot(x.j) &&
+                   ['asbestos', 'lead'].every(id => { const e = (x.j.checklist || {})[id]; return !e || e.a !== 'yes' || e.s === 'clear'; }) },
+    noprofile: { name:'WM profile not set up', keep: x => isHot(x.j) && ckSid(x.j, 'abProfile') !== 'setup' },
+    estimates: { name:'Estimates requested', keep: x => x.j.stage === 'estimate' },
+    tocheck:   { name:'Needs checking',      keep: x => toCheck.includes(x) }
+  };
+  let list = jobs, filterName = '';
+  if(dashFilter.startsWith('stage:')){ const id = dashFilter.slice(6); list = jobs.filter(x => x.j.stage === id); filterName = stageOf(id).label; }
+  else if(dashFilter.startsWith('group:')){ const id = dashFilter.slice(6); list = jobs.filter(x => x.s.open.some(o => o.it.group === id)); filterName = (CHECK_GROUPS.find(g => g.id === id) || {}).label; }
+  else if(dashFilter.startsWith('type:')){
+    const id = dashFilter.slice(5);
+    /* The mix may be counting finished jobs too, so the list does as well. */
+    const pool = dashScope === 'all' ? every.map(j => ({ j, s: checkSummary(j) })) : jobs;
+    list = pool.filter(x => jobType(x.j) === id); filterName = (JOB_TYPES.find(t => t.id === id) || {}).label;
+  }
+  else if(FILTERS[dashFilter]){ list = jobs.filter(FILTERS[dashFilter].keep); filterName = FILTERS[dashFilter].name; }
 
-  const byStage = STAGES.filter(s => s.id !== 'complete').map(s => {
+  const byStage = STAGES.map(s => {
     const here = list.filter(x => x.j.stage === s.id)
       .sort((a, b) => b.s.open.length - a.s.open.length || a.j.name.localeCompare(b.j.name));
     if(!here.length) return '';
     return `<div class="dash-sec" style="border-left-color:${s.color}">${s.label} <span>${here.length}</span></div>` +
       here.map(({ j, s: sum }) => `
         <div class="dash-job" onclick="openJob(${qa(j.name)})">
-          <div class="nm">${escapeHtml(j.name)}<span>${escapeHtml([lossLabel(j), j.tech].filter(Boolean).join(' · '))}</span></div>
+          <div class="nm">${escapeHtml(j.name)}${isHot(j) || isLeadHot(j) ? '<em class="hot-tag">Hot</em>' : ''}
+            <span>${escapeHtml([lossLabel(j), j.tech].filter(Boolean).join(' · '))}</span></div>
           ${sum.open.length ? `<div class="dash-items">${sum.open
               .sort((a, b) => b.days - a.days)
               .map(o => `<span class="dash-item ${ageClass(o.days)}">${o.it.short}: ${o.st.l} &middot; ${ageText(o.days)}</span>`).join('')}</div>` : ''}
           ${sum.suggested.length ? `<div class="dash-items">${sum.suggested.map(it =>
               `<span class="dash-item sug">${it.short}? ${escapeHtml(checkSuggest(j, it.id))}</span>`).join('')}</div>` : ''}
           ${!sum.open.length && !sum.suggested.length
-              ? `<div class="dash-clear">${sum.started ? 'Nothing holding it up' : 'Checklist not started'}</div>` : ''}
+              ? `<div class="dash-clear">${j.stage === 'complete' ? 'Complete' : sum.started ? 'Nothing holding it up' : 'Checklist not started'}</div>` : ''}
         </div>`).join('');
   }).join('');
 
   el.innerHTML = `
     <div class="dash-stages">${stages}</div>
+    ${mix}
+    ${testCard}
+    ${abCard}
     <div class="section-title">Holding jobs up</div>
     ${holdRows || `<div class="hint" style="margin-top:0;">Nothing open on any job.</div>`}
     <div class="section-title" style="display:flex;align-items:center;gap:8px;">Jobs
@@ -4004,7 +4288,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-20d';
+const WB_BUILD = '2026-10-20e';
 function renderBuildInfo(){
   document.getElementById('buildInfo').innerHTML =
     `Version <b>${WB_BUILD}</b><br>` +
