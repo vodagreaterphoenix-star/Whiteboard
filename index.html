@@ -801,7 +801,19 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 /* ===== BEGIN JOB CHECKLIST (CSS), added 2026-10-20 =====
    The Checklist section in the job, board badges, and the Dashboard.
    Delete with the JOB CHECKLIST HTML and JS blocks. ===== */
-.ck-sum{font-size:12px;color:var(--muted);margin:-4px 0 8px;}
+/* The header is the fold: tap anywhere on it. */
+.ck-head{
+  display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;margin:14px 0 4px;text-align:left;color:var(--ink);
+}
+.ck-head.has-open{border-color:var(--amber);}
+.ck-head-t{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;}
+.ck-sum{flex:1;min-width:0;font-size:12px;color:var(--muted);text-align:right;}
+.ck-sum b{color:var(--amber);}
+.ck-caret{width:18px;height:18px;flex-shrink:0;color:var(--muted);transition:transform .18s ease;}
+.ck-head.folded .ck-caret{transform:rotate(-90deg);}
+@media (prefers-reduced-motion: reduce){ .ck-caret{transition:none;} }
 .ck-group{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:12px 0 6px;}
 .ck-row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px;}
 .ck-row.open{border-color:var(--amber);}
@@ -1419,9 +1431,13 @@ details.hsec{scroll-margin-top:8px;}
   <div class="section-title">Stage</div>
   <div class="chip-row" id="jdStages"></div>
 
-  <!-- BEGIN JOB CHECKLIST (HTML). Drawn by renderChecklist; saves itself. -->
-  <div class="section-title">Checklist</div>
-  <div class="ck-sum" id="jdCheckSum"></div>
+  <!-- BEGIN JOB CHECKLIST (HTML). Drawn by renderChecklist; saves itself.
+       The header folds the list away; see ckOpen in the JS. -->
+  <button class="ck-head" id="jdCheckHead" onclick="ckToggle()" aria-expanded="true" aria-controls="jdChecklist">
+    <span class="ck-head-t">Checklist</span>
+    <span class="ck-sum" id="jdCheckSum"></span>
+    <svg class="ck-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  </button>
   <div id="jdChecklist"></div>
   <!-- END JOB CHECKLIST (HTML) -->
 
@@ -2201,7 +2217,8 @@ function openJob(name){
 
   document.getElementById('jdStages').innerHTML = STAGES.map(s =>
     `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
-  renderChecklist();   // JOB CHECKLIST
+  ckOpen = checkSummary(j).unchecked.length > 0;   // JOB CHECKLIST: unfolded until every question is answered
+  renderChecklist();                               // JOB CHECKLIST
 
   document.getElementById('jdPhone').value    = j.phone   || '';
   document.getElementById('jdEmail').value    = j.email   || '';
@@ -2943,6 +2960,13 @@ const CHECK_GROUPS = [
 const CHECK_ITEMS = CHECK_GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.id })));
 
 let ckSaveTimer = null;
+/* Whether the Checklist is unfolded. Set each time a job opens: open
+   while any question is unanswered, folded once they all are. It does
+   not fold itself the moment the last answer goes in, because that is
+   usually when someone is about to set a step or type a note; it
+   arrives folded the next time the job is opened. The header toggles
+   it either way. */
+let ckOpen = true;
 let ckPending = false;
 let dashFilter = '';
 
@@ -2982,16 +3006,24 @@ function checkSummary(j){
 
 /* ---- in the job ---- */
 
+function ckToggle(){ ckOpen = !ckOpen; renderChecklist(); }
+
 function renderChecklist(){
   const wrap = document.getElementById('jdChecklist');
   if(!wrap || !currentJob) return;
   const j = allJobs().find(x => x.name === currentJob) || {};
   const c = j.checklist || {};
   const sum = checkSummary(j);
-  const head = sum.open.length || sum.unchecked.length
-    ? `${sum.open.length} open &middot; ${sum.unchecked.length} not checked yet`
-    : 'Everything checked, nothing open';
-  document.getElementById('jdCheckSum').innerHTML = head;
+  const bits = [];
+  if(sum.unchecked.length) bits.push(`${sum.unchecked.length} to answer`);
+  if(sum.open.length) bits.push(`<b>${sum.open.length} open</b>`);
+  document.getElementById('jdCheckSum').innerHTML = bits.length ? bits.join(' &middot; ') : 'All answered, nothing open';
+  const head = document.getElementById('jdCheckHead');
+  head.classList.toggle('folded', !ckOpen);
+  head.classList.toggle('has-open', sum.open.length > 0);
+  head.setAttribute('aria-expanded', String(ckOpen));
+  wrap.style.display = ckOpen ? '' : 'none';
+  if(!ckOpen) return;
 
   wrap.innerHTML = CHECK_GROUPS.map(g => `
     <div class="ck-group">${g.label}</div>
