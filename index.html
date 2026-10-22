@@ -792,6 +792,34 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .mw-go{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;}
 /* ===== END MAP FEATURE (CSS) ===== */
 
+/* ===== BEGIN SCREENSHOT IMPORT (CSS), added 2026-10-21 =====
+   The Fill from screenshots button, its result card, and the extra
+   New Job fields. Delete with the SCREENSHOT IMPORT HTML and JS. ===== */
+.imp-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;
+  padding:12px;border-radius:12px;border:1.5px dashed var(--cyan);background:rgba(0,180,216,.07);
+  color:var(--ink);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px;}
+.imp-btn:disabled{opacity:.5;}
+.imp-btn svg{width:18px;height:18px;color:var(--cyan);}
+.imp-card{background:var(--gray-bg);border-radius:12px;padding:10px 12px;margin:6px 0 12px;font-size:12.5px;color:var(--ink);}
+.imp-busy{font-weight:600;color:var(--muted);}
+.imp-srcs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;}
+.imp-src{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--blue-bg);color:var(--blue);}
+.imp-src.bad{background:var(--red-bg);color:var(--red);}
+.imp-line{margin-top:5px;line-height:1.4;}
+.imp-line.ok{color:var(--green);font-weight:600;}
+.imp-line.warn{color:var(--amber);}
+.imp-line.bad{color:var(--red);}
+.imp-merge{display:block;width:100%;margin-top:7px;padding:10px;font-size:13px;}
+.imp-raw{margin-top:8px;}
+.imp-raw summary{cursor:pointer;color:var(--muted);font-size:11.5px;font-weight:600;}
+.imp-raw-h{font-size:11px;font-weight:800;color:var(--muted);margin:7px 0 3px;text-transform:uppercase;letter-spacing:.4px;}
+.imp-raw pre{white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.35;background:var(--card);border:1px solid var(--line);
+  border-radius:8px;padding:8px;margin:0;max-height:180px;overflow:auto;color:var(--ink);}
+/* Imported values stay marked until someone edits them. */
+.imp-filled{border-left:4px solid var(--cyan) !important;}
+.nj-more-link{background:none;border:none;color:var(--blue);font-size:13px;font-weight:700;padding:4px 0 10px;cursor:pointer;}
+/* ===== END SCREENSHOT IMPORT (CSS) ===== */
+
 /* ===== BEGIN JOB CHECKLIST (CSS), added 2026-10-20 =====
    The Checklist section in the job, board badges, and the Dashboard.
    Delete with the JOB CHECKLIST HTML and JS blocks. ===== */
@@ -884,11 +912,15 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .mix-row .nm{flex:1;min-width:0;color:var(--ink);font-weight:600;line-height:1.25;}
 .mix-row .ct{font-weight:800;color:var(--ink);}
 .mix-row .ct small{font-weight:500;color:var(--muted);margin-left:5px;}
-.mix-extra{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:10px;padding:9px 10px;border-top:1px dashed var(--line);cursor:pointer;border-radius:8px;}
-.mix-extra.on{background:var(--gray-bg);}
-.mix-extra .nm{font-size:13px;font-weight:700;color:var(--ink);}
-.mix-extra .ct{margin-left:auto;font-size:18px;font-weight:800;color:#7C3AED;}
-.mix-extra small{flex-basis:100%;font-size:11px;color:var(--muted);}
+.mix-sub{font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px;}
+.mix-est{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.mix-est-h{flex-basis:100%;font-size:11px;font-weight:700;color:var(--muted);}
+.est-chip{border:1.5px solid transparent;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;background:var(--gray-bg);color:var(--ink);}
+.est-chip b{font-weight:800;margin-right:2px;}
+.est-chip.ins{background:var(--blue-bg);color:var(--blue);}
+.est-chip.self{background:var(--green-bg);color:var(--green);}
+.est-chip.none{background:var(--amber-bg);color:var(--amber);}
+.est-chip.on{border-color:var(--navy);}
 .dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
 .dash-stat{background:var(--gray-bg);border:2px solid transparent;border-radius:11px;padding:9px 4px;cursor:pointer;text-align:center;}
 .dash-stat.on{border-color:var(--navy);}
@@ -917,6 +949,12 @@ body.modal-open #mapCanvas{ visibility:hidden; }
 .ab-sq span{font-size:9.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.15;}
 .hot-tag{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:#C2410C;border-radius:5px;padding:1px 5px;margin-left:7px;vertical-align:middle;}
 .ck-group.hot{color:#C2410C;}
+/* ESTIMATE section in the job */
+.est-box{background:var(--card);border:1px solid #7C3AED;border-radius:12px;padding:12px 14px;margin:14px 0 4px;}
+.est-h{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#7C3AED;}
+.est-q{font-size:13px;font-weight:600;color:var(--ink);margin:8px 0 6px;}
+.est-yn{display:inline-flex;}
+.est-yn button{padding:8px 18px;}
 /* Positive finishes the test but is bad news: hot orange, not done green. */
 .ck-st.on.hot{background:rgba(194,65,12,.12);color:#C2410C;}
 /* ===== END JOB CHECKLIST (CSS) ===== */
@@ -1464,6 +1502,24 @@ details.hsec{scroll-margin-top:8px;}
   <div class="section-title">Stage</div>
   <div class="chip-row" id="jdStages"></div>
 
+  <!-- BEGIN ESTIMATE (HTML). Shown at the Estimate and Complete stages,
+       or whenever a choice has been made. Filled by renderEstimate. The
+       carrier and claim boxes here and in The loss are the same values,
+       kept in step as you type. -->
+  <div id="jdEstimate" class="est-box" style="display:none;">
+    <div class="est-h">Estimate</div>
+    <div class="est-q">Submit to</div>
+    <div class="ck-yn est-yn">
+      <button id="estIns" onclick="setPayer('insurance')">Insurance</button>
+      <button id="estSelf" onclick="setPayer('self')">Self-pay</button>
+    </div>
+    <div id="estInsFields" style="display:none;margin-top:10px;">
+      <div class="field"><label>Insurance carrier</label><input id="jdEstCarrier" placeholder="Insurance company" oninput="syncField('jdEstCarrier','jdCarrier')"></div>
+      <div class="field" style="margin-bottom:0;"><label>Claim number</label><input id="jdEstClaim" spellcheck="false" oninput="syncField('jdEstClaim','jdClaim')"></div>
+    </div>
+  </div>
+  <!-- END ESTIMATE (HTML) -->
+
   <!-- BEGIN JOB CHECKLIST (HTML). Drawn by renderChecklist; saves itself.
        The header folds the list away; see ckOpen in the JS. -->
   <button class="ck-head" id="jdCheckHead" onclick="ckToggle()" aria-expanded="true" aria-controls="jdChecklist">
@@ -1487,8 +1543,8 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="yearBuiltHint()"></div>
   <div class="hint" id="jdYearHint" style="display:none;margin-top:-4px;"></div>
   <!-- END YEAR BUILT -->
-  <div class="field"><label>Carrier</label><input id="jdCarrier" placeholder="Insurance company"></div>
-  <div class="field"><label>Claim number</label><input id="jdClaim" spellcheck="false"></div>
+  <div class="field"><label>Carrier</label><input id="jdCarrier" placeholder="Insurance company" oninput="syncField('jdCarrier','jdEstCarrier')"></div>
+  <div class="field"><label>Claim number</label><input id="jdClaim" spellcheck="false" oninput="syncField('jdClaim','jdEstClaim')"></div>
   <div class="field"><label>Assigned to</label><select id="jdTech"></select></div>
 
   <div class="section-title">Site access</div>
@@ -1507,10 +1563,31 @@ details.hsec{scroll-margin-top:8px;}
     <div><div class="sheet-title">New Job</div><div class="sheet-sub">Name and address now, the rest whenever</div></div>
     <button class="close-x" onclick="closeModal('modalNewJob')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
+  <!-- BEGIN SCREENSHOT IMPORT (HTML). See that JS block. -->
+  <input type="file" id="njFile" accept="image/*" multiple style="display:none" onchange="njImport(this.files)">
+  <button class="imp-btn" id="njImportBtn" onclick="document.getElementById('njFile').click()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+    Fill from screenshots
+  </button>
+  <div class="hint" style="margin:0 0 8px;">TrueRestore or Workiz screenshots of the same job. Pick one or several.</div>
+  <div id="njImport"></div>
+  <!-- END SCREENSHOT IMPORT (HTML) -->
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
   <div class="field"><label>Address</label><input id="njAddress" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
   <div class="field"><label>Type of loss</label><select id="njLoss" onchange="syncWaterCat('nj')"></select></div>
   <div class="field" id="njWaterCatField" style="display:none;"><label>Water category</label><select id="njWaterCat"></select></div>   <!-- WATER CATEGORY -->
+  <!-- SCREENSHOT IMPORT: the job details beyond name and address. Folded
+       away until an import fills one, or someone taps the link. -->
+  <button class="nj-more-link" id="njMoreLink" onclick="njMore(true)">+ Phone, email, insurance and notes</button>
+  <div id="njMore" style="display:none;">
+    <div class="field"><label>Phone</label><input id="njPhone" type="tel" placeholder="(602) 555-0147"></div>
+    <div class="field"><label>Email</label><input id="njEmail" type="email" placeholder="name@example.com"></div>
+    <div class="field"><label>Insurance carrier</label><input id="njCarrier"></div>
+    <div class="field"><label>Claim #</label><input id="njClaim"></div>
+    <div class="field"><label>Date of loss</label><input id="njLossDate" type="date"></div>
+    <div class="field"><label>Year built</label><input id="njYearBuilt" inputmode="numeric" maxlength="4" placeholder="e.g. 1978"></div>
+    <div class="field"><label>Notes</label><textarea id="njNotes" rows="4"></textarea></div>
+  </div>
   <div class="btn-row"><button class="btn btn-primary" onclick="createJob()">Create job</button></div>
   <div class="hint">The customer is shared with the Equipment Tracker, so equipment can be checked out to this job straight away.</div>
 </div></div>
@@ -2266,6 +2343,7 @@ function openJob(name){
   document.getElementById('jdAddr').value     = j.address || '';
   document.getElementById('jdCarrier').value  = j.carrier || '';
   document.getElementById('jdClaim').value    = j.claim   || '';
+  renderEstimate();   // ESTIMATE: after carrier and claim are filled, so its copies match
   document.getElementById('jdLossDate').value = j.lossDate|| '';
   document.getElementById('jdYearBuilt').value = j.yearBuilt || '';   // YEAR BUILT
   yearBuiltHint();                                                    // YEAR BUILT
@@ -2311,7 +2389,36 @@ function setJobStage(id){
   const j = allJobs().find(x => x.name === currentJob);
   document.getElementById('jdStages').innerHTML = STAGES.map(s =>
     `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
+  renderEstimate();   // ESTIMATE: appears when the job reaches Estimate
 }
+
+/* BEGIN ESTIMATE (JS), added 2026-10-21
+   The last part of a job: once the work is done, the estimate goes to
+   insurance or the customer pays it themselves. Shown at the Estimate
+   and Complete stages, or on any job where a choice was already made.
+   The choice is kept like the stage is, and saved with Save job.
+   Touch points: the ESTIMATE markup, openJob, setJobStage, the carrier
+   and claim inputs (kept in step), and the Dashboard's estimate split. */
+function renderEstimate(){
+  const w = ensureRecord(currentJob);
+  const box = document.getElementById('jdEstimate');
+  const show = ['estimate', 'complete'].includes(w.stage) || !!w.payer;
+  box.style.display = show ? '' : 'none';
+  if(!show) return;
+  document.getElementById('estIns').className = w.payer === 'insurance' ? 'on yes' : '';
+  document.getElementById('estSelf').className = w.payer === 'self' ? 'on yes' : '';
+  document.getElementById('estInsFields').style.display = w.payer === 'insurance' ? '' : 'none';
+  document.getElementById('jdEstCarrier').value = document.getElementById('jdCarrier').value;
+  document.getElementById('jdEstClaim').value = document.getElementById('jdClaim').value;
+}
+/* Tapping the chosen option again clears it, in case of a wrong tap. */
+function setPayer(p){
+  const w = ensureRecord(currentJob);
+  w.payer = w.payer === p ? '' : p;
+  renderEstimate();
+}
+function syncField(from, to){ document.getElementById(to).value = document.getElementById(from).value; }
+/* END ESTIMATE (JS) */
 
 /* BEGIN YEAR BUILT helpers. Touch points: modalJob form, openJob, saveJob. */
 
@@ -2413,6 +2520,12 @@ async function saveAccess(){
 function openNewJob(){
   document.getElementById('njName').value = '';
   document.getElementById('njAddress').value = '';
+  /* SCREENSHOT IMPORT: a clean form every time. */
+  ['njPhone','njEmail','njCarrier','njClaim','njLossDate','njYearBuilt','njNotes'].forEach(id => document.getElementById(id).value = '');
+  document.querySelectorAll('#modalNewJob .imp-filled').forEach(el => el.classList.remove('imp-filled'));
+  document.getElementById('njImport').innerHTML = '';
+  njImportMatch = '';
+  njMore(false);
   document.getElementById('njLoss').innerHTML = lossOptions('');                // WATER CATEGORY
   document.getElementById('njWaterCat').innerHTML = waterCatOptions('');       // WATER CATEGORY
   syncWaterCat('nj');                                                          // WATER CATEGORY
@@ -2436,6 +2549,8 @@ async function createJob(){
   w.loss = document.getElementById('njLoss').value;
   w.waterCat = readWaterCat('nj');   // WATER CATEGORY
   w.stage = 'new';
+  /* SCREENSHOT IMPORT: whatever made it into the extra fields. */
+  Object.entries(njExtras()).forEach(([k, v]) => { if(v) w[k] = v; });
 
   await apiPost('saveClientInfo', clients.map(x=>({ name:x.name, address:x.address||'' })));
   const ok = await saveWhiteboard();
@@ -2933,6 +3048,422 @@ function wbRefreshMap(){
 }
 
 /* =====================================================================
+ * BEGIN SCREENSHOT IMPORT: parser, added 2026-10-21
+ *
+ * Turns the text Google's OCR read from a screenshot into job fields.
+ * Built for three screens: a TrueRestore job, a Workiz job and a Workiz
+ * client. Rules, not AI: each screen is recognised by words it always
+ * shows, then each field is found by its label or by its shape (a phone
+ * looks like a phone, an address ends in a state and ZIP).
+ *
+ * Never imported: TrueRestore's job number (its ending, like WAT, is
+ * used only to tell the type of loss), Workiz's job number and status.
+ * ===================================================================== */
+
+const IMPORT_SOURCES = {
+  trueRestore:  'TrueRestore job',
+  workizJob:    'Workiz job',
+  workizClient: 'Workiz client',
+  unknown:      'Unrecognised screen'
+};
+
+/* TrueRestore job numbers end in a code for the type of loss. Only WAT
+   has been seen on a real screen; the rest are best guesses, and a
+   wrong guess only pre-fills a dropdown that gets reviewed. */
+const TR_TYPE_CODES = {
+  WAT:'Water Mitigation', WTR:'Water Mitigation',
+  MLD:'Mold Remediation', MOL:'Mold Remediation', MOLD:'Mold Remediation',
+  FIR:'Fire / Smoke', FIRE:'Fire / Smoke', SMK:'Fire / Smoke',
+  ASB:'Asbestos Abatement', BIO:'Biohazard'
+};
+const TR_JOB_NO = /\b\d{2}-\d{4,6}-([A-Z]{2,5})\b/;
+
+const US_STATES = {alabama:'AL',alaska:'AK',arizona:'AZ',arkansas:'AR',california:'CA',colorado:'CO',connecticut:'CT',delaware:'DE',
+  florida:'FL',georgia:'GA',hawaii:'HI',idaho:'ID',illinois:'IL',indiana:'IN',iowa:'IA',kansas:'KS',kentucky:'KY',louisiana:'LA',
+  maine:'ME',maryland:'MD',massachusetts:'MA',michigan:'MI',minnesota:'MN',mississippi:'MS',missouri:'MO',montana:'MT',nebraska:'NE',
+  nevada:'NV','new hampshire':'NH','new jersey':'NJ','new mexico':'NM','new york':'NY','north carolina':'NC','north dakota':'ND',
+  ohio:'OH',oklahoma:'OK',oregon:'OR',pennsylvania:'PA','rhode island':'RI','south carolina':'SC','south dakota':'SD',tennessee:'TN',
+  texas:'TX',utah:'UT',vermont:'VT',virginia:'VA',washington:'WA','west virginia':'WV',wisconsin:'WI',wyoming:'WY','district of columbia':'DC'};
+const STATE_NAMES = Object.keys(US_STATES).sort((a, b) => b.length - a.length).join('|');
+const STATE_ABBRS = [...new Set(Object.values(US_STATES))].join('|');
+/* Ends in a state (name or two letters) and a ZIP. */
+const ADDR_TAIL = new RegExp(`(?:,?\\s*)\\b(${STATE_NAMES}|${STATE_ABBRS})\\.?,?\\s+(\\d{5})(?:-\\d{4})?\\s*$`, 'i');
+
+/* Words on these screens that are never a customer's name. */
+const NOT_NAMES = /^(update available|active|inactive|closed|pending|submitted|scheduled|in progress|done|completed|details|finance|timeline|description|status|client|view client details|schedule|main address|billing address|additional contacts|jobs|leads|invoices|estimates|client notes|total revenue|due|esx orders|activity feed|master floorplan|forms|locations|general|add|add service plan|front bedroom|back bedroom|right bedroom|left bedroom|bathroom|living room|hallway|kitchen|garage|laundry|master bedroom|dining room|family room|water damage|mold|fire|job)\b/i;
+const NAME_RE = /^[A-Z][A-Za-z'’.-]+(?:\s+(?:[A-Z][A-Za-z'’.-]*|&|and|de|del|la|van|von)){1,4}$/;
+
+function impLines(text){
+  return String(text || '')
+    .replace(/\r/g, '')
+    .split('\n')
+    /* Drop stray icon marks OCR sometimes reads at a line's start, and
+       the vertical bars Workiz puts between phone and email. */
+    .map(l => l.replace(/^[\s©®@§¶•·*>›<‹|/\\]+(?=[A-Za-z0-9(])/, '').replace(/\s+\|\s+/g, '\n').trim())
+    .join('\n').split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+function impSource(text){
+  if(/Main address|Billing address|Total revenue|Additional contacts/i.test(text)) return 'workizClient';
+  if(/Job\s*#\s*\d+/i.test(text) && /View client details|Add service plan|Timeline|Finance/i.test(text)) return 'workizJob';
+  if(TR_JOB_NO.test(text) || /ESX\s*Orders|Master\s*Floorplan|Activity\s*Feed/i.test(text)) return 'trueRestore';
+  return 'unknown';
+}
+
+function cleanAddress(a){
+  let s = String(a).replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+  s = s.replace(ADDR_TAIL, (m, st, zip) => {
+    const ab = US_STATES[st.toLowerCase()] || st.toUpperCase();
+    return `, ${ab} ${zip}`;
+  });
+  return s.replace(/,\s*,/g, ',').replace(/^,\s*/, '');
+}
+/* An address line, or two lines that make one (street, then city, state
+   ZIP), the way a long address wraps on a narrow screen. */
+function findAddress(lines, from){
+  for(let i = from || 0; i < lines.length; i++){
+    const l = lines[i];
+    if(!/^\d{1,6}\s+\S/.test(l)) continue;
+    if(ADDR_TAIL.test(l)) return { value: cleanAddress(l), at: i };
+    const next = lines[i + 1] || '';
+    if(ADDR_TAIL.test(next) && !/^\d/.test(next)) return { value: cleanAddress(l + ', ' + next), at: i + 1 };
+  }
+  return null;
+}
+function findPhone(text){
+  /* (?:^|\D) rather than a lookbehind, which iPhones before iOS 16.4
+     can't parse; one unparseable pattern stops the whole app loading. */
+  const m = String(text).match(/(?:^|\D)\(?\s*(\d{3})\s*\)?[\s.-]*(\d{3})[\s.-]*(\d{4})(?!\d)/);
+  return m ? `(${m[1]}) ${m[2]}-${m[3]}` : '';
+}
+function findEmail(text){
+  const m = String(text).match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  return m ? m[0].toLowerCase() : '';
+}
+function isName(l){ return NAME_RE.test(l) && !NOT_NAMES.test(l) && !/\d/.test(l); }
+
+function lossFromWords(t){
+  t = String(t).toLowerCase();
+  if(/asbestos/.test(t)) return 'Asbestos Abatement';
+  if(/mold|mould/.test(t)) return 'Mold Remediation';
+  if(/fire|smoke|soot/.test(t)) return 'Fire / Smoke';
+  if(/bio|trauma|crime scene|hoard/.test(t)) return 'Biohazard';
+  if(/water|flood|leak|overflow|pipe|sewage|sewer/.test(t)) return 'Water Mitigation';
+  return '';
+}
+
+function toIsoDate(t){
+  t = String(t).trim();
+  let m = t.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m = t.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/);
+  if(m){ const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`; }
+  const d = new Date(t.replace(/(\d+)(st|nd|rd|th)\b/, '$1'));
+  return isNaN(d) ? '' : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* Labelled details that may appear on any of the screens (TrueRestore's
+   job details, mostly). The value is either after a colon on the same
+   line or on the next line. Anything without its own field in the
+   Whiteboard goes into Notes with its label. */
+const IMPORT_LABELS = [
+  { key:'carrier',  re:/^(insurance(?:\s+(?:company|carrier))?|carrier|insurer)\s*:?\s*(.*)$/i },
+  { key:'claim',    re:/^(claim\s*(?:number|no\.?|#)?)\s*:?\s*(.*)$/i },
+  { key:'lossDate', re:/^(date\s+of\s+loss|loss\s+date|dol)\s*:?\s*(.*)$/i },
+  { key:'yearBuilt',re:/^(year\s+built)\s*:?\s*(.*)$/i },
+  { key:'category', re:/^((?:water\s+)?category|cat\.?)\s*:?\s*(.*)$/i },
+  { key:'cause',    re:/^(cause\s+of\s+loss|loss\s+cause|type\s+of\s+loss|loss\s+type)\s*:?\s*(.*)$/i },
+  { key:'note', label:'Policy #',  re:/^(policy\s*(?:number|no\.?|#)?)\s*:?\s*(.*)$/i },
+  { key:'note', label:'Adjuster',  re:/^(adjuster(?:\s+name)?)\s*:?\s*(.*)$/i },
+  { key:'note', label:'Deductible',re:/^(deductible)\s*:?\s*(.*)$/i },
+  { key:'note', label:'Scope',     re:/^(scope(?:\s+of\s+work)?)\s*:?\s*(.*)$/i },
+  { key:'note', label:'Notes',     re:/^(notes?|job\s+notes|loss\s+description)\s*:?\s*(.*)$/i }
+];
+function labelled(lines, out){
+  lines.forEach((l, i) => {
+    for(const L of IMPORT_LABELS){
+      const m = l.match(L.re);
+      if(!m) continue;
+      let v = (m[2] || '').trim();
+      if(!v){ const n = lines[i + 1] || ''; if(!IMPORT_LABELS.some(x => x.re.test(n))) v = n; }
+      if(!v || TR_JOB_NO.test(v)) break;
+      if(L.key === 'note') out.notes.push(`${L.label}: ${v}`);
+      else if(L.key === 'lossDate'){ const d = toIsoDate(v); if(d) out.lossDate = d; }
+      else if(L.key === 'yearBuilt'){ const y = (v.match(/\b(1[89]\d\d|20\d\d)\b/) || [])[1]; if(y) out.yearBuilt = y; }
+      else if(L.key === 'category'){ const c = (v.match(/\b([123])\b/) || [])[1]; if(c) out.waterCat = 'Category ' + c; }
+      else if(L.key === 'cause'){ const t = lossFromWords(v); if(t) out.loss = t; out.notes.push(`Cause of loss: ${v}`); }
+      else out[L.key] = v;
+      break;
+    }
+  });
+}
+
+function parseScreenshot(text){
+  const lines = impLines(text);
+  const all = lines.join('\n');
+  const source = impSource(all);
+  const out = { source, name:'', address:'', phone:'', email:'', loss:'', waterCat:'', carrier:'', claim:'', lossDate:'', yearBuilt:'', notes:[] };
+
+  if(source === 'trueRestore'){
+    const code = (all.match(TR_JOB_NO) || [])[1];
+    if(code && TR_TYPE_CODES[code]) out.loss = TR_TYPE_CODES[code];
+    const a = findAddress(lines);
+    if(a){
+      out.address = a.value;
+      /* The customer's name sits just under the address. */
+      const after = lines.slice(a.at + 1, a.at + 4).find(isName);
+      if(after) out.name = after;
+    }
+    if(!out.name){
+      const st = lines.findIndex(l => /^(active|inactive|closed|pending)$/i.test(l));
+      if(st > 0 && isName(lines[st - 1])) out.name = lines[st - 1];
+    }
+  }
+
+  if(source === 'workizJob'){
+    /* The name follows the "Client" label; "View client details" may be
+       read on the same line or the next. */
+    const ci = lines.findIndex(l => /^Client\b/i.test(l));
+    if(ci >= 0){
+      const same = lines[ci].replace(/^Client\s*/i, '').replace(/View client details/i, '').trim();
+      out.name = isName(same) ? same : (lines.slice(ci + 1, ci + 4).find(isName) || '');
+    }
+    /* Description: everything between "Description" and "Status". */
+    const di = lines.findIndex(l => /^Description$/i.test(l));
+    if(di >= 0){
+      const end = lines.findIndex((l, i) => i > di && /^(Status|Client)\b/i.test(l));
+      const desc = lines.slice(di + 1, end > di ? end : di + 2).join(' ').trim();
+      if(desc) out.notes.push(`Description: ${desc}`);
+    }
+    /* Job type: the line under the last "Details" (the first is a tab). */
+    let ti = -1; lines.forEach((l, i) => { if(/^Details$/i.test(l)) ti = i; });
+    const type = ti >= 0 ? (lines[ti + 1] || '') : '';
+    if(type && !/^(Finance|Timeline)$/i.test(type)){ out.loss = lossFromWords(type); if(!out.loss) out.notes.push(`Job type: ${type}`); }
+    if(!out.loss) out.loss = lossFromWords(out.notes.join(' '));
+    const a = findAddress(lines); if(a) out.address = a.value;
+    out.phone = findPhone(lines.filter(l => !/miles from/i.test(l)).join('\n'));
+  }
+
+  if(source === 'workizClient'){
+    /* The header name: the last name-like line before the phone or email. */
+    const pi = lines.findIndex(l => findPhone(l) || findEmail(l));
+    const before = (pi > 0 ? lines.slice(0, pi) : lines).filter(isName);
+    out.name = before.length ? before[before.length - 1] : '';
+    const mi = lines.findIndex(l => /^Main address$/i.test(l));
+    const a = findAddress(lines, mi >= 0 ? mi : 0) || findAddress(lines);
+    if(a) out.address = a.value;
+    out.phone = findPhone(all);
+    out.email = findEmail(all);
+  }
+
+  if(source === 'unknown'){
+    /* Not one of the known screens: take only what's unmistakable. */
+    const a = findAddress(lines); if(a) out.address = a.value;
+    out.phone = findPhone(all);
+    out.email = findEmail(all);
+  }
+
+  labelled(lines, out);
+  return out;
+}
+
+/* Several screenshots of one job become one set of fields. The first
+   screenshot to supply a field wins; a later one that disagrees is
+   reported, never silently swapped in. Notes are combined. */
+function mergeImports(results){
+  const fields = ['name','address','phone','email','loss','waterCat','carrier','claim','lossDate','yearBuilt'];
+  const merged = { notes: [], from: {}, conflicts: [] };
+  const norm = (k, v) => k === 'address' ? cleanAddress(v).toLowerCase().replace(/[^a-z0-9]/g, '') : String(v).toLowerCase().replace(/\s+/g, ' ').trim();
+  results.forEach((r, i) => {
+    fields.forEach(k => {
+      if(!r[k]) return;
+      if(!merged[k]){ merged[k] = r[k]; merged.from[k] = i; }
+      else if(norm(k, merged[k]) !== norm(k, r[k])) merged.conflicts.push({ field: k, kept: merged[k], other: r[k], shot: i });
+      /* Same address written two ways: keep the one with more commas
+         ("Dr, Surprise, AZ"), which reads and maps more reliably. */
+      else if(k === 'address' && (r[k].match(/,/g) || []).length > (merged[k].match(/,/g) || []).length) merged[k] = r[k];
+    });
+    r.notes.forEach(n => { if(!merged.notes.includes(n)) merged.notes.push(n); });
+  });
+  return merged;
+}
+/* END SCREENSHOT IMPORT: parser */
+
+/* =====================================================================
+ * BEGIN SCREENSHOT IMPORT: New Job form, added 2026-10-21
+ *
+ * "Fill from screenshots" on the New Job sheet. Each picked image is
+ * shrunk on the phone, read by the backend's free OCR (Code.gs, 'ocr'),
+ * parsed above, and merged. The result fills the New Job form for a
+ * person to check; nothing is saved until Create job is tapped.
+ *
+ * Two promises: it never overwrites anything already typed in the form,
+ * and when screenshots disagree it keeps the first and says so.
+ * If the customer already exists, it offers to add the details to that
+ * job instead, filling only what that job is missing.
+ *
+ * Touch points outside this block: the New Job sheet markup, openNewJob
+ * (resets this), createJob (saves the extra fields), the SCREENSHOT
+ * IMPORT CSS block, and ocrImageOp in Code.gs.
+ * ===================================================================== */
+
+/* Form field for each imported value. */
+const NJ_FIELDS = { name:'njName', address:'njAddress', phone:'njPhone', email:'njEmail',
+  carrier:'njCarrier', claim:'njClaim', lossDate:'njLossDate', yearBuilt:'njYearBuilt' };
+const NJ_LABELS = { name:'Name', address:'Address', phone:'Phone', email:'Email', loss:'Type of loss',
+  waterCat:'Water category', carrier:'Insurance', claim:'Claim #', lossDate:'Date of loss', yearBuilt:'Year built', notes:'Notes' };
+let njImportMatch = '';
+
+function njMore(show){
+  document.getElementById('njMore').style.display = show ? '' : 'none';
+  document.getElementById('njMoreLink').style.display = show ? 'none' : '';
+}
+
+/* Phone screenshots are big PNGs. Redrawn as a JPEG no wider than 1400
+   pixels they are a tenth of the size and read just as well. */
+function imgToJpegB64(file){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1400 / img.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * scale);
+      c.height = Math.round(img.naturalHeight * scale);
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file isn\u2019t an image')); };
+    img.src = url;
+  });
+}
+
+async function njImport(files){
+  files = [...files].slice(0, 5);
+  if(!files.length) return;
+  const box = document.getElementById('njImport');
+  const btn = document.getElementById('njImportBtn');
+  btn.disabled = true;
+  const reads = [];
+  for(let i = 0; i < files.length; i++){
+    box.innerHTML = `<div class="imp-card"><div class="imp-busy">Reading screenshot ${i + 1} of ${files.length}&hellip;</div></div>`;
+    try{
+      const b64 = await imgToJpegB64(files[i]);
+      const r = await apiPost('ocr', { b64, mime: 'image/jpeg' });
+      if(!r || r.error){
+        const msg = r && r.error === 'Unknown action'
+          ? 'The backend needs this update first: deploy the new Code.gs.'
+          : (r && r.error) || 'No reply from the backend.';
+        reads.push({ file: files[i].name, error: msg });
+      } else {
+        reads.push({ file: files[i].name, text: r.text, parsed: parseScreenshot(r.text) });
+      }
+    }catch(err){
+      reads.push({ file: files[i].name, error: err.message === 'network' ? 'Couldn\u2019t reach the backend.' : err.message });
+    }
+  }
+  btn.disabled = false;
+  document.getElementById('njFile').value = '';   // so the same picture can be picked again
+  njApplyImport(reads);
+}
+
+function njApplyImport(reads){
+  const good = reads.filter(r => r.parsed);
+  const m = mergeImports(good.map(r => r.parsed));
+  const filled = [], kept = [];
+
+  const fill = (key, id, value) => {
+    if(!value) return;
+    const el = document.getElementById(id);
+    if(el.value.trim()){ if(el.value.trim().toLowerCase() !== String(value).toLowerCase()) kept.push(key); return; }
+    el.value = value;
+    el.classList.add('imp-filled');
+    filled.push(key);
+  };
+  Object.entries(NJ_FIELDS).forEach(([k, id]) => fill(k, id, m[k]));
+  if(m.loss && !document.getElementById('njLoss').value){
+    document.getElementById('njLoss').innerHTML = lossOptions(m.loss);
+    document.getElementById('njLoss').classList.add('imp-filled');
+    filled.push('loss');
+  }
+  syncWaterCat('nj');
+  if(m.waterCat && document.getElementById('njLoss').value === WATER_LOSS && !document.getElementById('njWaterCat').value){
+    document.getElementById('njWaterCat').innerHTML = waterCatOptions(m.waterCat);
+    filled.push('waterCat');
+  }
+  if(m.notes.length){
+    const el = document.getElementById('njNotes');
+    const have = el.value.trim();
+    const add = m.notes.filter(n => !have.includes(n));
+    if(add.length){ el.value = (have ? have + '\n' : '') + add.join('\n'); el.classList.add('imp-filled'); filled.push('notes'); }
+  }
+  if(filled.some(k => !['name', 'address', 'loss', 'waterCat'].includes(k))) njMore(true);
+
+  /* Already a customer? Match by name, or by address written either way. */
+  const name = document.getElementById('njName').value.trim().toLowerCase();
+  const addr = mapNorm(document.getElementById('njAddress').value).replace(/[^a-z0-9]/g, '');
+  const hit = clients.find(c => (name && c.name.toLowerCase() === name) ||
+    (addr && mapNorm(c.address || '').replace(/[^a-z0-9]/g, '') === addr));
+  njImportMatch = hit ? hit.name : '';
+
+  const card = [];
+  card.push(`<div class="imp-srcs">${reads.map(r => `<span class="imp-src ${r.error ? 'bad' : ''}">${escapeHtml(r.parsed ? IMPORT_SOURCES[r.parsed.source] : 'Not read')}</span>`).join('')}</div>`);
+  if(filled.length) card.push(`<div class="imp-line ok">Filled: ${filled.map(k => NJ_LABELS[k]).join(', ')}. Check them below.</div>`);
+  else if(good.length) card.push(`<div class="imp-line">Nothing new found to fill in.</div>`);
+  m.conflicts.forEach(c => card.push(`<div class="imp-line warn">${NJ_LABELS[c.field]}: screenshots disagree. Kept &ldquo;${escapeHtml(c.kept)}&rdquo;, the other says &ldquo;${escapeHtml(c.other)}&rdquo;.</div>`));
+  if(kept.length) card.push(`<div class="imp-line warn">Left what you'd already typed for ${kept.map(k => NJ_LABELS[k]).join(', ')}.</div>`);
+  reads.filter(r => r.error).forEach(r => card.push(`<div class="imp-line bad">${escapeHtml(r.error)}</div>`));
+  good.filter(r => r.parsed.source === 'unknown').forEach(() =>
+    card.push(`<div class="imp-line warn">One screenshot wasn't a screen this knows, so only an address, phone or email was taken from it.</div>`));
+  if(njImportMatch) card.push(`<div class="imp-line warn"><b>${escapeHtml(njImportMatch)}</b> is already on the board.
+      <button class="btn btn-primary imp-merge" onclick="njMergeExisting()">Add these details to that job</button></div>`);
+  if(good.length) card.push(`<details class="imp-raw"><summary>Show what was read</summary>${good.map(r =>
+      `<div class="imp-raw-h">${escapeHtml(IMPORT_SOURCES[r.parsed.source])}</div><pre>${escapeHtml(r.text)}</pre>`).join('')}</details>`);
+  document.getElementById('njImport').innerHTML = `<div class="imp-card">${card.join('')}</div>`;
+}
+
+/* The extra details from the form, the same way for a new job and for
+   adding to an existing one. */
+function njExtras(){
+  const v = id => document.getElementById(id).value.trim();
+  return { phone: v('njPhone'), email: v('njEmail'), carrier: v('njCarrier'), claim: v('njClaim'),
+    lossDate: v('njLossDate'), yearBuilt: cleanYearBuilt(v('njYearBuilt')), notes: v('njNotes') };
+}
+
+/* Fills only what the existing job is missing; notes are added to, never
+   replaced. The existing job's own details always win. */
+async function njMergeExisting(){
+  const name = njImportMatch;
+  if(!name) return;
+  const w = ensureRecord(name);
+  const x = njExtras();
+  let n = 0;
+  ['phone', 'email', 'carrier', 'claim', 'lossDate', 'yearBuilt'].forEach(k => { if(x[k] && !w[k]){ w[k] = x[k]; n++; } });
+  const loss = document.getElementById('njLoss').value;
+  if(loss && !w.loss){ w.loss = loss; n++; }
+  const cat = readWaterCat('nj');
+  if(cat && !w.waterCat && normLoss(w.loss) === WATER_LOSS){ w.waterCat = cat; n++; }
+  if(x.notes){
+    const have = w.notes || '';
+    const add = x.notes.split('\n').filter(l => l.trim() && !have.includes(l.trim()));
+    if(add.length){ w.notes = (have ? have + '\n' : '') + add.join('\n'); n++; }
+  }
+  const c = clients.find(k => k.name === name);
+  const addr = document.getElementById('njAddress').value.trim();
+  if(c && !c.address && addr){ c.address = addr; n++; await apiPost('saveClientInfo', clients.map(k => ({ name:k.name, address:k.address || '' }))); }
+  w.updated = new Date().toISOString();
+  if(!await saveWhiteboard()) return;
+  closeModal('modalNewJob');
+  showToast(n ? `Added ${n} detail${n !== 1 ? 's' : ''} to ${name}` : `${name} already had all of that`);
+  renderAll();
+  setTimeout(() => openJob(name), SHEET_CLOSE_MS + 40);
+}
+/* END SCREENSHOT IMPORT: New Job form */
+
+/* =====================================================================
  * BEGIN JOB CHECKLIST (JS), added 2026-10-20
  *
  * The questions that can hold a job up: testing, contents, access,
@@ -3265,6 +3796,9 @@ const JOB_TYPES = [
   { id:'other',    label:'Other',                   color:'#8A94A0' },
   { id:'unset',    label:'Type not set',            color:'#CBD2D9' }
 ];
+/* Straight from Type of loss, no guessing from the stage: the Stage
+   chart beside it shows where jobs are, so this one only shows what
+   they are. A job with no type shows as "Type not set". */
 function jobType(j){
   const loss = normLoss(j.loss);
   if(loss === ABATE_LOSS) return 'abate';
@@ -3278,20 +3812,22 @@ function jobType(j){
 
 /* A ring of arcs drawn with circle dashes: each slice is the same
    circle with only its own stretch of the outline painted. */
-function donutSvg(parts, total){
+function donutSvg(parts, total, prefix){
   const R = 52, C = 2 * Math.PI * R;
   let off = 0;
   const arcs = parts.map(p => {
     const len = C * p.n / total;
     const gap = parts.length > 1 ? Math.min(1.5, len / 4) : 0;   // hairline between slices
-    const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke="${p.color}" stroke-width="22"
+    /* Colour goes in style, not the stroke attribute: stage colours are
+       CSS variables, which the attribute form doesn't understand. */
+    const arc = `<circle cx="70" cy="70" r="${R}" fill="none" stroke-width="22"
       stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}"
-      transform="rotate(-90 70 70)" style="cursor:pointer" onclick="setDashFilter('type:${p.id}')">
+      transform="rotate(-90 70 70)" style="cursor:pointer;stroke:${p.color}" onclick="setDashFilter('${prefix}:${p.id}')">
       <title>${p.label}: ${p.n}</title></circle>`;
     off += len;
     return arc;
   }).join('');
-  return `<svg class="donut" viewBox="0 0 140 140" role="img" aria-label="Job mix">
+  return `<svg class="donut" viewBox="0 0 140 140" role="img" aria-label="${prefix === 'stage' ? 'Jobs by stage' : 'Jobs by type of loss'}">
     <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--gray-bg)" stroke-width="22"/>
     ${arcs}
     <text x="70" y="68" text-anchor="middle" class="donut-n">${total}</text>
@@ -3332,10 +3868,26 @@ function renderDashboard(){
       <span class="n" style="color:${s.color}">${n}</span><span class="l">${s.label}</span></button>`;
   }).join('');
 
-  /* Job mix */
+  /* Job mix: two charts over the same jobs. By type of loss is what the
+     jobs are; by stage is where they are. Open/All applies to both. */
   const mixJobs = dashScope === 'all' ? every : every.filter(j => j.stage !== 'complete');
-  const parts = JOB_TYPES.map(t => ({ ...t, n: mixJobs.filter(j => jobType(j) === t.id).length })).filter(p => p.n);
-  const estimates = mixJobs.filter(j => j.stage === 'estimate').length;
+  const pct = n => Math.round(n * 100 / mixJobs.length);
+  const legend = (parts, prefix) => `<div class="mix-legend">${parts.map(p => `
+      <div class="mix-row ${dashFilter === prefix + ':' + p.id ? 'on' : ''}" onclick="setDashFilter('${prefix}:${p.id}')">
+        <i style="background:${p.color}"></i><span class="nm">${p.label}</span>
+        <span class="ct">${p.n}<small>${pct(p.n)}%</small></span></div>`).join('')}</div>`;
+  const typeParts = JOB_TYPES.map(t => ({ ...t, n: mixJobs.filter(j => jobType(j) === t.id).length })).filter(p => p.n);
+  const stageParts = STAGES.map(st => ({ id: st.id, label: st.label, color: st.color, n: mixJobs.filter(j => j.stage === st.id).length })).filter(p => p.n);
+  /* ESTIMATE: who the Estimate-stage jobs are being submitted to. */
+  const atEst = mixJobs.filter(j => j.stage === 'estimate');
+  const estRow = (f, n, label, cls) => `<button class="est-chip ${cls} ${dashFilter === f ? 'on' : ''}" onclick="setDashFilter('${f}')"><b>${n}</b> ${label}</button>`;
+  const estLine = atEst.length ? `
+      <div class="mix-est">
+        <div class="mix-est-h">At Estimate, submitting to</div>
+        ${estRow('est:insurance', atEst.filter(j => j.payer === 'insurance').length, 'Insurance', 'ins')}
+        ${estRow('est:self', atEst.filter(j => j.payer === 'self').length, 'Self-pay', 'self')}
+        ${atEst.some(j => !j.payer) ? estRow('est:none', atEst.filter(j => !j.payer).length, 'Not chosen yet', 'none') : ''}
+      </div>` : '';
   const mix = mixJobs.length ? `
     <div class="dash-card">
       <div class="dash-card-h">Job mix
@@ -3343,18 +3895,11 @@ function renderDashboard(){
           <button class="${dashScope === 'open' ? 'on' : ''}" onclick="setDashScope('open')">Open</button>
           <button class="${dashScope === 'all' ? 'on' : ''}" onclick="setDashScope('all')">All</button>
         </span></div>
-      <div class="mix">
-        ${donutSvg(parts, mixJobs.length)}
-        <div class="mix-legend">${parts.map(p => `
-          <div class="mix-row ${dashFilter === 'type:' + p.id ? 'on' : ''}" onclick="setDashFilter('type:${p.id}')">
-            <i style="background:${p.color}"></i><span class="nm">${p.label}</span>
-            <span class="ct">${p.n}<small>${Math.round(p.n * 100 / mixJobs.length)}%</small></span></div>`).join('')}
-        </div>
-      </div>
-      <div class="mix-extra ${dashFilter === 'estimates' ? 'on' : ''}" onclick="setDashFilter('estimates')">
-        <span class="nm">Estimates requested</span><span class="ct">${estimates}</span>
-        <small>Jobs at the Estimate stage. Any type of job can need one, so they aren't a slice.</small>
-      </div>
+      <div class="mix-sub">By type of loss</div>
+      <div class="mix">${donutSvg(typeParts, mixJobs.length, 'type')}${legend(typeParts, 'type')}</div>
+      <div class="mix-sub" style="margin-top:14px;">By stage</div>
+      <div class="mix">${donutSvg(stageParts, mixJobs.length, 'stage')}${legend(stageParts, 'stage')}</div>
+      ${estLine}
     </div>` : '';
 
   /* Specialist testing: shows only once any job needs a test */
@@ -3438,10 +3983,19 @@ function renderDashboard(){
                    ['asbestos', 'lead'].every(id => { const e = (x.j.checklist || {})[id]; return !e || e.a !== 'yes' || e.s === 'clear'; }) },
     noprofile: { name:'WM profile not set up', keep: x => isHot(x.j) && ckSid(x.j, 'abProfile') !== 'setup' },
     estimates: { name:'Estimates requested', keep: x => x.j.stage === 'estimate' },
+    'est:insurance': { name:'Estimates to insurance', keep: x => x.j.stage === 'estimate' && x.j.payer === 'insurance' },
+    'est:self':      { name:'Estimates self-pay',     keep: x => x.j.stage === 'estimate' && x.j.payer === 'self' },
+    'est:none':      { name:'Estimates not chosen',   keep: x => x.j.stage === 'estimate' && !x.j.payer },
     tocheck:   { name:'Needs checking',      keep: x => toCheck.includes(x) }
   };
   let list = jobs, filterName = '';
-  if(dashFilter.startsWith('stage:')){ const id = dashFilter.slice(6); list = jobs.filter(x => x.j.stage === id); filterName = stageOf(id).label; }
+  if(dashFilter.startsWith('stage:')){
+    const id = dashFilter.slice(6);
+    /* Complete jobs are only in the list when All is on (they're never in
+       the open set), so tapping the Complete slice can list them. */
+    const pool = id === 'complete' ? every.map(j => ({ j, s: checkSummary(j) })) : jobs;
+    list = pool.filter(x => x.j.stage === id); filterName = stageOf(id).label;
+  }
   else if(dashFilter.startsWith('group:')){ const id = dashFilter.slice(6); list = jobs.filter(x => x.s.open.some(o => o.it.group === id)); filterName = (CHECK_GROUPS.find(g => g.id === id) || {}).label; }
   else if(dashFilter.startsWith('type:')){
     const id = dashFilter.slice(5);
@@ -4288,7 +4842,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-20e';
+const WB_BUILD = '2026-10-21c';
 function renderBuildInfo(){
   document.getElementById('buildInfo').innerHTML =
     `Version <b>${WB_BUILD}</b><br>` +
@@ -4311,6 +4865,9 @@ function initTheme(){
 /* ============ INIT ============ */
 initTheme();
 loadData();
+// SCREENSHOT IMPORT: once someone edits an imported value, it's theirs.
+document.addEventListener('input', e => { if(e.target.classList && e.target.classList.contains('imp-filled')) e.target.classList.remove('imp-filled'); });
+
 // JOB CHECKLIST: also waits while a checklist save is on its way, so the
 // refresh can't bring back the old answers before the new ones land.
 setInterval(()=>{ if(!document.querySelector('.overlay.active') && !ckPending) loadData(true); }, 20000);
