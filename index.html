@@ -1312,6 +1312,7 @@ details.hsec{scroll-margin-top:8px;}
   border-bottom:1px solid var(--line);font-size:13px;color:var(--ink);
 }
 .addr-row:last-child{border-bottom:none;}
+.addr-hint{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:8px 12px 4px;}
 .addr-row:active{background:var(--blue-bg);}
 .addr-row svg{width:15px;height:15px;color:var(--muted);flex-shrink:0;}
 .addr-row .txt{flex:1;min-width:0;}
@@ -2119,6 +2120,43 @@ function geoPlausible(pt){
   return milesBetween(shop, pt) <= GEO_MAX_MILES;
 }
 
+/* ADDRESS SUGGESTIONS: these settings were missing when this code came
+   over from the Equipment Tracker, so every keystroke in an address box
+   threw an error and suggestions never appeared in the Whiteboard. */
+const PHOTON_URL = 'https://photon.komoot.io/api/?limit=6&lang=en&q=';
+const SUGGEST_DEBOUNCE_MS = 280;   // wait for a pause in typing
+const GEO_MAX_MILES = 250;         // suggestions further than this from the shop are dropped (same as the Tracker)
+let suggestTimer = null;
+let suggestPts = {};               // label -> {lat, lon}, from the tapped result
+
+/* An address with no ZIP at the end, like one a screenshot cut off. */
+function addressLacksZip(a){ return /\d+\s+\S/.test(a) && !/\b\d{5}(?:-\d{4})?\s*$/.test(a); }
+
+/* Our own addresses first, then Photon's. hint is a heading for the list. */
+async function runAddressSuggest(inputId, q, hint){
+  const input = document.getElementById(inputId);
+  const full = r => /\b\d{5}\s*$/.test(r.label);
+  /* Asked for a full address: only offer ones that have a ZIP, never the
+     incomplete one that's already in the box. */
+  const local = localAddressMatches(q).filter(r => !hint || full(r));
+  if(local.length) renderSuggestions(inputId, local, hint);
+  try{
+    let remote = await fetchPhoton(q);
+    /* Photon can stumble on "City, AZ" with no ZIP; try once more
+       without the state if the first try found nothing. */
+    if(!remote.length && /,\s*[A-Z]{2}\s*$/.test(q)) remote = await fetchPhoton(q.replace(/,\s*[A-Z]{2}\s*$/, ''));
+    if(hint) remote = remote.filter(full);   // only offer full addresses
+    /* One line per address: Photon can match the house and the street
+       separately, and with the house number kept they read the same. */
+    const seen = new Set(local.map(r=>r.label.toLowerCase()));
+    const merged = local.concat(remote.filter(r=>{ const k = r.label.toLowerCase(); if(seen.has(k)) return false; seen.add(k); return true; }));
+    if(input.value.trim() === q) renderSuggestions(inputId, merged.slice(0,6), hint);
+  }catch(e){
+    // Offline, or Photon unreachable. Typing still works.
+    console.warn('address suggestions unavailable', e);
+  }
+}
+
 function attachAddressSuggest(inputId){
   const input = document.getElementById(inputId);
   if(!input || input.dataset.suggestOn) return;
@@ -2129,33 +2167,35 @@ function attachAddressSuggest(inputId){
     const q = input.value.trim();
     clearTimeout(suggestTimer);
     if(q.length < 4){ hideSuggestions(inputId); return; }
-
-    // Our own addresses can be shown immediately — no waiting.
     const local = localAddressMatches(q);
     if(local.length) renderSuggestions(inputId, local);
+    suggestTimer = setTimeout(()=> runAddressSuggest(inputId, q), SUGGEST_DEBOUNCE_MS);
+  });
 
-    suggestTimer = setTimeout(async ()=>{
-      try{
-        const remote = await fetchPhoton(q);
-        const seen = new Set(local.map(r=>r.label.toLowerCase()));
-        const merged = local.concat(remote.filter(r=>!seen.has(r.label.toLowerCase())));
-        if(input.value.trim() === q) renderSuggestions(inputId, merged.slice(0,6));
-      }catch(e){
-        // Offline, or Photon unreachable. Typing still works.
-        console.warn('address suggestions unavailable', e);
-      }
-    }, SUGGEST_DEBOUNCE_MS);
+  /* Tapping an address that has no ZIP offers the full address straight
+     away, ZIP included. A complete address stays quiet on tap, so
+     editing a finished job isn't interrupted by a list. */
+  input.addEventListener('focus', ()=>{
+    const q = input.value.trim();
+    if(q.length >= 8 && addressLacksZip(q)) runAddressSuggest(inputId, q, 'Suggested full address');
   });
 
   input.addEventListener('blur', ()=> setTimeout(()=>hideSuggestions(inputId), 180));
 }
 
-function photonLabel(f){
+function photonLabel(f, q){
   const p = f.properties || {};
-  const street = [p.housenumber, p.street || p.name].filter(Boolean).join(' ');
+  /* Photon sometimes knows the street but not the house number. If the
+     search started with one, keep it, so "20368 N 263rd Dr" doesn't
+     come back as just "N 263rd Dr". */
+  const typedNo = (String(q || '').match(/^\s*(\d+[A-Za-z]?)\s/) || [])[1];
+  const street = [p.housenumber || (p.street || p.name ? typedNo : ''), p.street || p.name].filter(Boolean).join(' ');
   const city = p.city || p.town || p.village || p.county || '';
-  const bits = [street, city, p.state, p.postcode].filter(Boolean);
-  return bits.join(', ');
+  /* Written the way the rest of the app writes addresses:
+     "20368 N 263rd Dr, Buckeye, AZ 85396". */
+  const state = p.state ? (US_STATES[String(p.state).toLowerCase()] || p.state) : '';
+  const tail = [state, p.postcode].filter(Boolean).join(' ');
+  return [street, city, tail].filter(Boolean).join(', ');
 }
 
 async function fetchPhoton(q){
@@ -2166,7 +2206,7 @@ async function fetchPhoton(q){
   const data = await res.json();
   return (data.features || [])
     .map(f => ({
-      label: photonLabel(f),
+      label: photonLabel(f, q),
       pt: { lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }
     }))
     .filter(r => r.label && (typeof geoPlausible !== 'function' || geoPlausible(r.pt)));
@@ -2189,11 +2229,11 @@ function hideSuggestions(inputId){
   if(box) box.style.display = 'none';
 }
 
-function renderSuggestions(inputId, rows){
+function renderSuggestions(inputId, rows, hint){
   const box = suggestBoxFor(inputId);
   if(!rows.length){ box.style.display = 'none'; return; }
   suggestPts = {};
-  box.innerHTML = rows.map((r,i)=>{
+  box.innerHTML = (hint ? `<div class="addr-hint">${escapeHtml(hint)}</div>` : '') + rows.map((r,i)=>{
     suggestPts[r.label] = r.pt;
     const tag = r.local ? '<span class="tag">used before</span>' : '';
     return `<div class="addr-row" onclick="pickSuggestion('${inputId}', ${i})">
@@ -2221,8 +2261,10 @@ async function pickSuggestion(inputId, i){
 function localAddressMatches(q){
   const needle = q.toLowerCase();
   const seen = new Set();
-  return Object.keys(clientAddresses)
-    .map(name => clientAddresses[name])
+  /* ADDRESS SUGGESTIONS: the Tracker keeps addresses in clientAddresses;
+     the Whiteboard keeps them on its clients list, so read them there. */
+  return clients
+    .map(c => c.address)
     .filter(a => {
       if(!a || seen.has(a.toLowerCase())) return false;
       seen.add(a.toLowerCase());
@@ -3422,7 +3464,7 @@ function njApplyImport(reads){
   if(filled.length) card.push(`<div class="imp-line ok">Filled: ${filled.map(k => NJ_LABELS[k]).join(', ')}. Check them below.</div>`);
   else if(good.length) card.push(`<div class="imp-line">Nothing new found to fill in.</div>`);
   if(filled.includes('address') && !/\d{5}\s*$/.test(document.getElementById('njAddress').value))
-    card.push(`<div class="imp-line warn">The ZIP code was cut off on the screenshot. Add it to the address if you have it.</div>`);
+    card.push(`<div class="imp-line warn">The ZIP code was cut off on the screenshot. Tap the address for a suggested full address.</div>`);
   m.conflicts.forEach(c => card.push(`<div class="imp-line warn">${NJ_LABELS[c.field]}: screenshots disagree. Kept &ldquo;${escapeHtml(c.kept)}&rdquo;, the other says &ldquo;${escapeHtml(c.other)}&rdquo;.</div>`));
   if(kept.length) card.push(`<div class="imp-line warn">Left what you'd already typed for ${kept.map(k => NJ_LABELS[k]).join(', ')}.</div>`);
   reads.filter(r => r.error).forEach(r => card.push(`<div class="imp-line bad">${escapeHtml(r.error)}</div>`));
@@ -4852,7 +4894,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-23a';
+const WB_BUILD = '2026-10-23b';
 function renderBuildInfo(){
   document.getElementById('buildInfo').innerHTML =
     `Version <b>${WB_BUILD}</b><br>` +
