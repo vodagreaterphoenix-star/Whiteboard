@@ -1597,7 +1597,7 @@ details.hsec{scroll-margin-top:8px;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
     Fill from screenshots
   </button>
-  <div class="hint" style="margin:0 0 8px;">TrueRestore or Workiz screenshots of the same job. Pick one or several.</div>
+  <div class="hint" style="margin:0 0 8px;">TrueRestore, Workiz or JobNimbus screenshots of the same job. Pick one or several.</div>
   <div id="njImport"></div>
   <!-- END SCREENSHOT IMPORT (HTML) -->
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
@@ -3120,19 +3120,22 @@ function wbRefreshMap(){
  * BEGIN SCREENSHOT IMPORT: parser, added 2026-10-21
  *
  * Turns the text Google's OCR read from a screenshot into job fields.
- * Built for three screens: a TrueRestore job, a Workiz job and a Workiz
- * client. Rules, not AI: each screen is recognised by words it always
+ * Built for four screens: a TrueRestore job, a Workiz job, a Workiz
+ * client, and a JobNimbus job (Details tab). Rules, not AI: each screen is recognised by words it always
  * shows, then each field is found by its label or by its shape (a phone
  * looks like a phone, an address ends in a state and ZIP).
  *
  * Never imported: TrueRestore's job number (its ending, like WAT, is
- * used only to tell the type of loss), Workiz's job number and status.
+ * used only to tell the type of loss), Workiz's job number and status,
+ * JobNimbus's job number, status (Lead and so on), assignee and sales
+ * rep. JobNimbus jobs always come in as Water Mitigation.
  * ===================================================================== */
 
 const IMPORT_SOURCES = {
   trueRestore:  'TrueRestore job',
   workizJob:    'Workiz job',
   workizClient: 'Workiz client',
+  jobNimbus:    'JobNimbus job',
   unknown:      'Unrecognised screen'
 };
 
@@ -3163,7 +3166,7 @@ const ADDR_TAIL = new RegExp(`(?:,?\\s*)\\b(${STATE_NAMES}|${STATE_ABBRS})\\.?,?
 const ADDR_CUT = new RegExp(`(?:,?\\s*)\\b(${STATE_NAMES}|${STATE_ABBRS})\\.?,?\\s*\\d{0,5}\\s*(?:\\.{2,}|\u2026)\\s*$`, 'i');
 
 /* Words on these screens that are never a customer's name. */
-const NOT_NAMES = /^(update available|active|inactive|closed|pending|submitted|scheduled|in progress|done|completed|details|finance|timeline|description|status|client|view client details|schedule|main address|billing address|additional contacts|jobs|leads|invoices|estimates|client notes|total revenue|due|esx orders|activity feed|master floorplan|forms|locations|general|add|add service plan|front bedroom|back bedroom|right bedroom|left bedroom|bathroom|living room|hallway|kitchen|garage|laundry|master bedroom|dining room|family room|water damage|mold|fire|job)\b/i;
+const NOT_NAMES = /^(update available|active|inactive|closed|pending|submitted|scheduled|in progress|done|completed|details|finance|timeline|description|status|client|view client details|schedule|main address|billing address|additional contacts|jobs|leads|invoices|estimates|client notes|total revenue|due|esx orders|activity feed|master floorplan|forms|locations|general|add|add service plan|front bedroom|back bedroom|right bedroom|left bedroom|bathroom|living room|hallway|kitchen|garage|laundry|master bedroom|dining room|family room|water damage|mold|fire|job|lead|call|text|email|pay|files|activity|primary contact name|assigned to|sales rep|job type|location|mobile)\b/i;
 const NAME_RE = /^[A-Z][A-Za-z'’.-]+(?:\s+(?:[A-Z][A-Za-z'’.-]*|&|and|de|del|la|van|von)){1,4}$/;
 
 function impLines(text){
@@ -3177,6 +3180,8 @@ function impLines(text){
 }
 
 function impSource(text){
+  /* JobNimbus's Details tab: upper-case labels with the value underneath. */
+  if(/Primary\s+contact\s+name|Assigned\s+to|Sales\s+rep/i.test(text) && /Job\s+type|Location/i.test(text)) return 'jobNimbus';
   if(/Main address|Billing address|Total revenue|Additional contacts/i.test(text)) return 'workizClient';
   if(/Job\s*#\s*\d+/i.test(text) && /View client details|Add service plan|Timeline|Finance/i.test(text)) return 'workizJob';
   if(TR_JOB_NO.test(text) || /ESX\s*Orders|Master\s*Floorplan|Activity\s*Feed/i.test(text)) return 'trueRestore';
@@ -3222,7 +3227,7 @@ function lossFromWords(t){
   if(/mold|mould/.test(t)) return 'Mold Remediation';
   if(/fire|smoke|soot/.test(t)) return 'Fire / Smoke';
   if(/bio|trauma|crime scene|hoard/.test(t)) return 'Biohazard';
-  if(/water|flood|leak|overflow|pipe|sewage|sewer/.test(t)) return 'Water Mitigation';
+  if(/water|flood|leak|overflow|pipe|burst|supply line|sewage|sewer/.test(t)) return 'Water Mitigation';
   return '';
 }
 
@@ -3241,7 +3246,10 @@ function toIsoDate(t){
    line or on the next line. Anything without its own field in the
    Whiteboard goes into Notes with its label. */
 const IMPORT_LABELS = [
-  { key:'carrier',  re:/^(insurance(?:\s+(?:company|carrier))?|carrier|insurer)\s*:?\s*(.*)$/i },
+  /* Carrier only from a real label: "Insurance:", "Insurance Company" with
+     the name after a colon or on the next line. "Insurance - Outlaws" is
+     a JobNimbus job type, not a carrier called "- Outlaws". */
+  { key:'carrier',  re:/^(insurance(?:\s+(?:company|carrier))?|carrier|insurer)\s*(?::\s*(.*))?$/i },
   { key:'claim',    re:/^(claim\s*(?:number|no\.?|#)?)\s*:?\s*(.*)$/i },
   { key:'lossDate', re:/^(date\s+of\s+loss|loss\s+date|dol)\s*:?\s*(.*)$/i },
   { key:'yearBuilt',re:/^(year\s+built)\s*:?\s*(.*)$/i },
@@ -3328,6 +3336,38 @@ function parseScreenshot(text){
     if(a) out.address = a.value;
     out.phone = findPhone(all);
     out.email = findEmail(all);
+  }
+
+  if(source === 'jobNimbus'){
+    /* Each label is on its own line in capitals; its value is the line or
+       lines under it, up to the next label. */
+    const JN_LABEL = /^(primary contact name|description|address|mobile|phone|home|work|email|job type|location|assigned to|sales rep|status|source|tags|related|record type|created|start date|end date)$/i;
+    const field = name => {
+      const i = lines.findIndex(l => l.toLowerCase() === name);
+      if(i < 0) return [];
+      const out = [];
+      for(let k = i + 1; k < lines.length && !JN_LABEL.test(lines[k]); k++) out.push(lines[k]);
+      return out;
+    };
+    const empty = v => !v || /^(none|n\/a|-+|\u2014)$/i.test(v.trim());
+    const pick = (name, ok) => field(name).find(v => !empty(v) && (!ok || ok(v))) || '';
+
+    out.name = pick('primary contact name', isName);
+    const addrLines = field('address');
+    const a = (addrLines.length && findAddress(addrLines)) || findAddress(lines);
+    if(a) out.address = a.value;
+    if(!out.name && a){ const under = lines.slice(a.at - 2, a.at + 3).find(isName); if(under) out.name = under; }
+    out.phone = findPhone(['mobile', 'phone', 'home', 'work'].map(n => field(n).join(' ')).join('\n')) || findPhone(all);
+    out.email = findEmail(field('email').join(' ')) || findEmail(all);
+
+    const desc = field('description').filter(v => !empty(v)).join(' ').trim();
+    if(desc) out.notes.push(`Description: ${desc}`);
+    const type = pick('job type');
+    if(type) out.notes.push(`Job type: ${type}`);
+    const where = pick('location'); if(where) out.notes.push(`Location: ${where}`);
+    /* Every job that comes from JobNimbus is a water mitigation job. Who it
+       was assigned to or sold by there isn't brought over. */
+    out.loss = 'Water Mitigation';
   }
 
   if(source === 'unknown'){
@@ -4921,7 +4961,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-23f';
+const WB_BUILD = '2026-10-24b';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
