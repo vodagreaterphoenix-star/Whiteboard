@@ -2,7 +2,9 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Same as the Equipment Tracker: no zoom. Without maximum-scale, Firefox on iPhone zooms in
+     when a text box is tapped, stays zoomed, and the page slides side to side. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Voda Whiteboard</title>
 <meta name="description" content="Job management board for Voda Cleaning &amp; Restoration of Greater Phoenix.">
 <!-- Browser chrome colour follows the device theme, same as the tracker. -->
@@ -4899,7 +4901,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-23c';
+const WB_BUILD = '2026-10-23d';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
@@ -4908,7 +4910,7 @@ function renderBuildInfo(){
        far the nav is lifted. If the nav ever hides behind a toolbar, a
        screenshot of this line shows why. */
     `Screen: page ${document.documentElement.clientHeight}, visible ${vv ? Math.round(vv.height) : '?'}` +
-    ` @ ${vv ? Math.round(vv.offsetTop) : '?'}, nav lifted ${window.dockLiftNow ? window.dockLiftNow() : 0}px<br>` +
+    ` @ ${vv ? Math.round(vv.offsetTop) : '?'}, nav lift ${window.dockLiftOn ? (window.dockLiftNow() + 'px') : 'off (not needed in this browser)'}<br>` +
     `<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;word-break:break-all;">${escapeHtml(navigator.userAgent)}</span>`;
 }
 function openSettings(){ renderBuildInfo(); openModal('modalSettings'); }
@@ -4949,7 +4951,12 @@ loadData();
  * ===================================================================== */
 (function(){
   const vv = window.visualViewport;
-  if(!vv) return;
+  /* Only the browsers whose toolbar covers the page: Firefox (FxiOS) and
+     Opera (OPT, OPiOS, OPX) on iPhone. Safari and Chrome shrink the page
+     instead, and lifting there only added jitter. */
+  const COVERS = /FxiOS\/|\b(OPT|OPiOS|OPX)\//.test(navigator.userAgent);
+  window.dockLiftOn = !!(vv && COVERS);
+  if(!window.dockLiftOn) return;
   const MAX_TOOLBAR_PX = 140;
   const root = document.documentElement;
   let raf = 0, lift = -1;
@@ -4960,7 +4967,14 @@ loadData();
   }
   function place(){
     raf = 0;
-    let gap = Math.round(root.clientHeight - (vv.height + vv.offsetTop));
+    /* While the page bounces past its top or bottom edge, keep the nav
+       where it is. The bounce shifts the visible area's position, which
+       an earlier version read as a toolbar and lifted the nav for. */
+    const maxScroll = root.scrollHeight - root.clientHeight;
+    if(window.scrollY < 0 || window.scrollY > maxScroll + 1) return;
+    /* Height only, never the position: a toolbar changes how tall the
+       visible area is; a bounce only moves it. */
+    let gap = Math.round(root.clientHeight - vv.height);
     if(gap < 2 || gap > MAX_TOOLBAR_PX || vv.scale > 1.01 || typing()) gap = 0;
     if(gap !== lift){ lift = gap; root.style.setProperty('--dock-lift', gap + 'px'); }
   }
@@ -4971,7 +4985,7 @@ loadData();
   window.addEventListener('resize', queue);
   document.addEventListener('focusin', queue);
   document.addEventListener('focusout', () => setTimeout(queue, 60));
-  window.dockLiftNow = () => lift;   // for the Settings readout
+  window.dockLiftNow = () => Math.max(0, lift);   // for the Settings readout
   place();
 })();
 /* END DOCK LIFT (JS) */
