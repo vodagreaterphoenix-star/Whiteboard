@@ -3088,6 +3088,10 @@ const STATE_NAMES = Object.keys(US_STATES).sort((a, b) => b.length - a.length).j
 const STATE_ABBRS = [...new Set(Object.values(US_STATES))].join('|');
 /* Ends in a state (name or two letters) and a ZIP. */
 const ADDR_TAIL = new RegExp(`(?:,?\\s*)\\b(${STATE_NAMES}|${STATE_ABBRS})\\.?,?\\s+(\\d{5})(?:-\\d{4})?\\s*$`, 'i');
+/* Workiz cuts long addresses off with an ellipsis, often mid-ZIP:
+   "Buckeye, Arizona 8539...". The broken ZIP is dropped rather than
+   guessed, and the form says to add it. */
+const ADDR_CUT = new RegExp(`(?:,?\\s*)\\b(${STATE_NAMES}|${STATE_ABBRS})\\.?,?\\s*\\d{0,5}\\s*(?:\\.{2,}|\u2026)\\s*$`, 'i');
 
 /* Words on these screens that are never a customer's name. */
 const NOT_NAMES = /^(update available|active|inactive|closed|pending|submitted|scheduled|in progress|done|completed|details|finance|timeline|description|status|client|view client details|schedule|main address|billing address|additional contacts|jobs|leads|invoices|estimates|client notes|total revenue|due|esx orders|activity feed|master floorplan|forms|locations|general|add|add service plan|front bedroom|back bedroom|right bedroom|left bedroom|bathroom|living room|hallway|kitchen|garage|laundry|master bedroom|dining room|family room|water damage|mold|fire|job)\b/i;
@@ -3112,6 +3116,7 @@ function impSource(text){
 
 function cleanAddress(a){
   let s = String(a).replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+  s = s.replace(ADDR_CUT, (m, st) => `, ${US_STATES[st.toLowerCase()] || st.toUpperCase()}`);
   s = s.replace(ADDR_TAIL, (m, st, zip) => {
     const ab = US_STATES[st.toLowerCase()] || st.toUpperCase();
     return `, ${ab} ${zip}`;
@@ -3124,9 +3129,9 @@ function findAddress(lines, from){
   for(let i = from || 0; i < lines.length; i++){
     const l = lines[i];
     if(!/^\d{1,6}\s+\S/.test(l)) continue;
-    if(ADDR_TAIL.test(l)) return { value: cleanAddress(l), at: i };
+    if(ADDR_TAIL.test(l) || ADDR_CUT.test(l)) return { value: cleanAddress(l), at: i };
     const next = lines[i + 1] || '';
-    if(ADDR_TAIL.test(next) && !/^\d/.test(next)) return { value: cleanAddress(l + ', ' + next), at: i + 1 };
+    if((ADDR_TAIL.test(next) || ADDR_CUT.test(next)) && !/^\d/.test(next)) return { value: cleanAddress(l + ', ' + next), at: i + 1 };
   }
   return null;
 }
@@ -3277,8 +3282,11 @@ function mergeImports(results){
   results.forEach((r, i) => {
     fields.forEach(k => {
       if(!r[k]) return;
+      const a = norm(k, merged[k] || ''), b = norm(k, r[k]);
       if(!merged[k]){ merged[k] = r[k]; merged.from[k] = i; }
-      else if(norm(k, merged[k]) !== norm(k, r[k])) merged.conflicts.push({ field: k, kept: merged[k], other: r[k], shot: i });
+      /* One screenshot cut the ZIP off, another didn't: same address, keep the full one. */
+      else if(k === 'address' && a !== b && (b.startsWith(a) || a.startsWith(b))){ if(b.length > a.length) merged[k] = r[k]; }
+      else if(a !== b) merged.conflicts.push({ field: k, kept: merged[k], other: r[k], shot: i });
       /* Same address written two ways: keep the one with more commas
          ("Dr, Surprise, AZ"), which reads and maps more reliably. */
       else if(k === 'address' && (r[k].match(/,/g) || []).length > (merged[k].match(/,/g) || []).length) merged[k] = r[k];
@@ -3413,6 +3421,8 @@ function njApplyImport(reads){
   card.push(`<div class="imp-srcs">${reads.map(r => `<span class="imp-src ${r.error ? 'bad' : ''}">${escapeHtml(r.parsed ? IMPORT_SOURCES[r.parsed.source] : 'Not read')}</span>`).join('')}</div>`);
   if(filled.length) card.push(`<div class="imp-line ok">Filled: ${filled.map(k => NJ_LABELS[k]).join(', ')}. Check them below.</div>`);
   else if(good.length) card.push(`<div class="imp-line">Nothing new found to fill in.</div>`);
+  if(filled.includes('address') && !/\d{5}\s*$/.test(document.getElementById('njAddress').value))
+    card.push(`<div class="imp-line warn">The ZIP code was cut off on the screenshot. Add it to the address if you have it.</div>`);
   m.conflicts.forEach(c => card.push(`<div class="imp-line warn">${NJ_LABELS[c.field]}: screenshots disagree. Kept &ldquo;${escapeHtml(c.kept)}&rdquo;, the other says &ldquo;${escapeHtml(c.other)}&rdquo;.</div>`));
   if(kept.length) card.push(`<div class="imp-line warn">Left what you'd already typed for ${kept.map(k => NJ_LABELS[k]).join(', ')}.</div>`);
   reads.filter(r => r.error).forEach(r => card.push(`<div class="imp-line bad">${escapeHtml(r.error)}</div>`));
@@ -4842,7 +4852,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-21c';
+const WB_BUILD = '2026-10-23a';
 function renderBuildInfo(){
   document.getElementById('buildInfo').innerHTML =
     `Version <b>${WB_BUILD}</b><br>` +
