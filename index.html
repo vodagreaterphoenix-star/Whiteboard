@@ -9,6 +9,9 @@
      numbers and dates on a page and underline them (dotted, in Chrome) as
      tap targets. The app has its own buttons for directions and calls. -->
 <meta name="format-detection" content="telephone=no, address=no, email=no, date=no">
+<!-- CHROME SHEETS: marks Chrome on iPhone (CriOS) before anything draws,
+     for the one rule in the CHROME SHEETS CSS. Nothing else uses it. -->
+<script>if(/CriOS\//.test(navigator.userAgent)) document.documentElement.classList.add('ua-crios');</script>
 <title>Voda Whiteboard</title>
 <meta name="description" content="Job management board for Voda Cleaning &amp; Restoration of Greater Phoenix.">
 <!-- Browser chrome colour follows the device theme, same as the tracker. -->
@@ -802,6 +805,13 @@ body.modal-open #mapCanvas{ visibility:hidden; }
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;}
 .mw-go{margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;}
 /* ===== END MAP FEATURE (CSS) ===== */
+
+/* CHROME SHEETS: in Chrome on iPhone, vh is measured as if its toolbars
+   were hidden, so 88vh can be taller than the space actually showing and
+   the sheet runs up to the top, leaving no backdrop to tap or swipe.
+   svh is the height with the toolbars showing. Chrome only; every other
+   browser keeps 88vh. */
+html.ua-crios .sheet{max-height:88svh;}
 
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
@@ -4911,7 +4921,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-23e';
+const WB_BUILD = '2026-10-23f';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
