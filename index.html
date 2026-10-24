@@ -263,8 +263,10 @@ nav.bottom{
   width:100%;max-width:640px;margin:0 auto;
   z-index:90;
   /* Own compositing layer: stops iOS Safari repainting it a frame late
-     while the page scrolls, which reads as the bar drifting. */
-  transform:translateZ(0);
+     while the page scrolls, which reads as the bar drifting.
+     DOCK LIFT: --dock-lift raises it clear of a browser toolbar that
+     covers the page instead of shrinking it (see the DOCK LIFT JS). */
+  transform:translate3d(0, calc(-1 * var(--dock-lift, 0px)), 0);
   will-change:transform;
   padding-bottom:max(8px, env(safe-area-inset-bottom));
 }
@@ -388,6 +390,9 @@ nav.bottom .navbtn.scanbtn{color:var(--cyan-dark);}
 .overlay{
   position:fixed;inset:0;background:rgba(10,20,30,0.55);z-index:100;
   display:none;align-items:flex-end;justify-content:center;
+  /* DOCK LIFT: sheets sit above a covering toolbar too, so their
+     buttons stay reachable. */
+  padding-bottom:var(--dock-lift, 0px);box-sizing:border-box;
 }
 .overlay.active{display:flex;}
 /* The camera must always be the topmost sheet. Anything that opens a
@@ -4894,10 +4899,16 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-23b';
+const WB_BUILD = '2026-10-23c';
 function renderBuildInfo(){
+  const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
     `Version <b>${WB_BUILD}</b><br>` +
+    /* DOCK LIFT readout: page height, visible height and offset, and how
+       far the nav is lifted. If the nav ever hides behind a toolbar, a
+       screenshot of this line shows why. */
+    `Screen: page ${document.documentElement.clientHeight}, visible ${vv ? Math.round(vv.height) : '?'}` +
+    ` @ ${vv ? Math.round(vv.offsetTop) : '?'}, nav lifted ${window.dockLiftNow ? window.dockLiftNow() : 0}px<br>` +
     `<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;word-break:break-all;">${escapeHtml(navigator.userAgent)}</span>`;
 }
 function openSettings(){ renderBuildInfo(); openModal('modalSettings'); }
@@ -4917,6 +4928,54 @@ function initTheme(){
 /* ============ INIT ============ */
 initTheme();
 loadData();
+/* =====================================================================
+ * BEGIN DOCK LIFT (JS), added 2026-10-23
+ *
+ * On iPhone, Opera and Firefox slide their bottom toolbar back over the
+ * page when you scroll down, without shrinking the page. Anything pinned
+ * to the bottom (the nav, and the bottom sheets) ends up behind the
+ * toolbar. Safari and Chrome shrink the page instead, so there is no gap
+ * and nothing moves.
+ *
+ * The browser reports the area actually visible (visualViewport). The
+ * gap between the bottom of the page and the bottom of that area is how
+ * much the toolbar covers, and --dock-lift raises the nav and sheets by
+ * exactly that much.
+ *
+ * Not while typing: the keyboard also shrinks the visible area, and a
+ * nav lifted above the keyboard would sit on top of the text box. Not
+ * while pinch-zoomed, and not for a gap too big to be a toolbar.
+ * Touch points outside this block: nav.bottom and .overlay CSS.
+ * ===================================================================== */
+(function(){
+  const vv = window.visualViewport;
+  if(!vv) return;
+  const MAX_TOOLBAR_PX = 140;
+  const root = document.documentElement;
+  let raf = 0, lift = -1;
+
+  function typing(){
+    const a = document.activeElement;
+    return !!a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable);
+  }
+  function place(){
+    raf = 0;
+    let gap = Math.round(root.clientHeight - (vv.height + vv.offsetTop));
+    if(gap < 2 || gap > MAX_TOOLBAR_PX || vv.scale > 1.01 || typing()) gap = 0;
+    if(gap !== lift){ lift = gap; root.style.setProperty('--dock-lift', gap + 'px'); }
+  }
+  const queue = () => { if(!raf) raf = requestAnimationFrame(place); };
+  vv.addEventListener('resize', queue);
+  vv.addEventListener('scroll', queue);
+  window.addEventListener('scroll', queue, { passive:true });
+  window.addEventListener('resize', queue);
+  document.addEventListener('focusin', queue);
+  document.addEventListener('focusout', () => setTimeout(queue, 60));
+  window.dockLiftNow = () => lift;   // for the Settings readout
+  place();
+})();
+/* END DOCK LIFT (JS) */
+
 // SCREENSHOT IMPORT: once someone edits an imported value, it's theirs.
 document.addEventListener('input', e => { if(e.target.classList && e.target.classList.contains('imp-filled')) e.target.classList.remove('imp-filled'); });
 
