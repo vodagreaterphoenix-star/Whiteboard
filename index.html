@@ -813,6 +813,15 @@ body.modal-open #mapCanvas{ visibility:hidden; }
    browser keeps 88vh. */
 html.ua-crios .sheet{max-height:88svh;}
 
+/* BOARD SORT AND TYPE: the row under the Board's search box. */
+.board-tools{display:flex;gap:8px;align-items:center;margin:-2px 0 10px;}
+.board-sort{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex-shrink:0;}
+.board-sort button{border:none;background:var(--card);color:var(--muted);font-size:12.5px;font-weight:700;padding:8px 11px;cursor:pointer;white-space:nowrap;}
+.board-sort button + button{border-left:1px solid var(--line);}
+.board-sort button.on{background:var(--navy);color:#fff;}
+.board-tools select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;
+  font-size:12.5px;font-weight:600;background:var(--card);color:var(--ink);}
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -1403,6 +1412,14 @@ details.hsec{scroll-margin-top:8px;}
     <div class="section-title">Jobs</div>
     <div class="chip-row" id="stageChips"></div>
     <input id="jobSearch" placeholder="Search name, address, claim…" style="width:100%;box-sizing:border-box;padding:10px 13px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;margin-bottom:10px;" oninput="renderBoard()">
+    <!-- BOARD SORT AND TYPE: order and type of loss for the job list. See that JS block. -->
+    <div class="board-tools">
+      <div class="board-sort" role="group" aria-label="Sort jobs">
+        <button id="sortAz" onclick="setBoardSort('az')">A&ndash;Z</button>
+        <button id="sortNew" onclick="setBoardSort('newest')">Newest first</button>
+      </div>
+      <select id="boardType" onchange="setBoardType(this.value)" aria-label="Type of loss"></select>
+    </div>
     <div id="boardList"></div>
   </div>
 
@@ -1921,6 +1938,54 @@ function renderStageChips(){
 }
 function setStageFilter(id){ stageFilter = (stageFilter === id) ? '' : id; renderStageChips(); renderBoard(); }
 
+/* =====================================================================
+ * BEGIN BOARD SORT AND TYPE (JS), added 2026-10-24
+ * A-Z or newest first, and a filter by type of loss, under the search
+ * box on the Board. Both are remembered on the phone.
+ *
+ * "Newest" is when the job was added to the Whiteboard (its created
+ * date). A job that has only ever been in the Equipment Tracker's
+ * customer list has no Whiteboard record yet, so no date: those go
+ * after the dated ones, latest-added customer first.
+ * Touch points: the board-tools markup, renderBoard, BOARD SORT CSS.
+ * ===================================================================== */
+const BOARD_PREF = { sort: 'voda-wb-board-sort', type: 'voda-wb-board-type' };
+let boardSort = 'az', boardType = '';
+try{
+  boardSort = localStorage.getItem(BOARD_PREF.sort) === 'newest' ? 'newest' : 'az';
+  boardType = localStorage.getItem(BOARD_PREF.type) || '';
+}catch(e){}
+function setBoardSort(v){ boardSort = v; try{ localStorage.setItem(BOARD_PREF.sort, v); }catch(e){} renderBoard(); }
+function setBoardType(v){ boardType = v; try{ localStorage.setItem(BOARD_PREF.type, v); }catch(e){} renderBoard(); }
+/* Type of loss as the filter sees it; blank becomes "not set". */
+const NO_TYPE = '__none';
+function boardTypeOf(j){ return normLoss(j.loss) || NO_TYPE; }
+function sortNewest(jobs){
+  const at = j => { const t = Date.parse(j.created || ''); return isNaN(t) ? null : t; };
+  const order = new Map(clients.map((c, i) => [c.name, i]));
+  return jobs.slice().sort((a, b) => {
+    const ta = at(a), tb = at(b);
+    if(ta !== null && tb !== null) return tb - ta;
+    if(ta !== null) return -1;
+    if(tb !== null) return 1;
+    return (order.get(b.name) ?? -1) - (order.get(a.name) ?? -1);
+  });
+}
+function renderBoardTools(pool){
+  document.getElementById('sortAz').className = boardSort === 'az' ? 'on' : '';
+  document.getElementById('sortNew').className = boardSort === 'newest' ? 'on' : '';
+  /* Only types that some job has, each with its count, plus the one
+     currently chosen even if it has run out of jobs. */
+  const counts = {};
+  pool.forEach(j => { const t = boardTypeOf(j); counts[t] = (counts[t] || 0) + 1; });
+  const types = [...LOSS_TYPES, NO_TYPE].filter(t => counts[t] || t === boardType);
+  const label = t => t === NO_TYPE ? 'Type not set' : t;
+  document.getElementById('boardType').innerHTML =
+    `<option value="">All types (${pool.length})</option>` +
+    types.map(t => `<option value="${escapeHtml(t)}"${t === boardType ? ' selected' : ''}>${escapeHtml(label(t))} (${counts[t] || 0})</option>`).join('');
+}
+/* END BOARD SORT AND TYPE (JS) */
+
 function renderBoard(){
   const q = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
   let jobs = allJobs();
@@ -1929,10 +1994,15 @@ function renderBoard(){
     (j.name||'').toLowerCase().includes(q) ||
     (j.address||'').toLowerCase().includes(q) ||
     (j.claim||'').toLowerCase().includes(q));
+  renderBoardTools(jobs);                                            // BOARD SORT AND TYPE
+  if(boardType) jobs = jobs.filter(j => boardTypeOf(j) === boardType);
+  if(boardSort === 'newest') jobs = sortNewest(jobs);               // allJobs() is already A-Z
 
   const list = document.getElementById('boardList');
   if(!jobs.length){
-    list.innerHTML = `<div class="empty">No jobs match. Tap <b>+ New Job</b> to add one.</div>`;
+    list.innerHTML = boardType
+      ? `<div class="empty">No jobs of this type here. Set the type back to <b>All types</b> to see the rest.</div>`
+      : `<div class="empty">No jobs match. Tap <b>+ New Job</b> to add one.</div>`;
     return;
   }
   list.innerHTML = jobs.map(j => {
@@ -1941,6 +2011,9 @@ function renderBoard(){
     if(j.loss) bits.push(escapeHtml(lossLabel(j)));   // WATER CATEGORY
     if(j.tech) bits.push(escapeHtml(j.tech));
     if(j.equipCount) bits.push(`${j.equipCount} unit${j.equipCount!==1?'s':''} out`);
+    /* BOARD SORT: when sorted by newest, say when each job was added. */
+    if(boardSort === 'newest' && j.created && !isNaN(Date.parse(j.created)))
+      bits.push('Added ' + new Date(j.created).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
     return `<div class="eq-card" onclick="openJob(decodeURIComponent('${encodeURIComponent(j.name)}'))">
       <div class="ribbon" style="background:${st.color}"></div>
       <div class="body">
@@ -4961,7 +5034,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-24b';
+const WB_BUILD = '2026-10-24c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
