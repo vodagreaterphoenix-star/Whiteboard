@@ -1928,8 +1928,10 @@ function renderStats(){
 function renderStageChips(){
   const jobs = allJobs();
   const wrap = document.getElementById('stageChips');
+  /* ACTIVE ONLY: the first chip is every job that isn't Complete.
+     Complete jobs show only when their own chip is tapped. */
   wrap.innerHTML =
-    `<div class="chip ${stageFilter===''?'active':''}" onclick="setStageFilter('')">All ${jobs.length}</div>` +
+    `<div class="chip ${stageFilter===''?'active':''}" onclick="setStageFilter('')">Active ${jobs.filter(j => j.stage !== 'complete').length}</div>` +
     STAGES.map(s => {
       const n = jobs.filter(j => j.stage === s.id).length;
       if(!n && s.id !== 'new') return '';
@@ -1989,23 +1991,31 @@ function renderBoardTools(pool){
 function renderBoard(){
   const q = (document.getElementById('jobSearch').value || '').trim().toLowerCase();
   let jobs = allJobs();
-  if(stageFilter) jobs = jobs.filter(j => j.stage === stageFilter);
-  if(q) jobs = jobs.filter(j =>
+  const matches = j => !q ||
     (j.name||'').toLowerCase().includes(q) ||
     (j.address||'').toLowerCase().includes(q) ||
-    (j.claim||'').toLowerCase().includes(q));
+    (j.claim||'').toLowerCase().includes(q);
+  /* ACTIVE ONLY: with no stage chip chosen, Complete jobs stay off the
+     Board. A search still says how many finished jobs it found, so an
+     old customer is one tap away instead of looking missing. */
+  const hiddenDone = (!stageFilter && q) ? jobs.filter(j => j.stage === 'complete' && matches(j)).length : 0;
+  jobs = stageFilter ? jobs.filter(j => j.stage === stageFilter) : jobs.filter(j => j.stage !== 'complete');
+  jobs = jobs.filter(matches);
   renderBoardTools(jobs);                                            // BOARD SORT AND TYPE
   if(boardType) jobs = jobs.filter(j => boardTypeOf(j) === boardType);
   if(boardSort === 'newest') jobs = sortNewest(jobs);               // allJobs() is already A-Z
 
   const list = document.getElementById('boardList');
+  const doneNote = hiddenDone
+    ? `<div class="hint" style="margin:0 0 10px;cursor:pointer;" onclick="setStageFilter('complete')">${hiddenDone} completed job${hiddenDone !== 1 ? 's' : ''} also match${hiddenDone !== 1 ? '' : 'es'}. Tap here or <b>Complete</b> to see ${hiddenDone !== 1 ? 'them' : 'it'}.</div>`
+    : '';
   if(!jobs.length){
-    list.innerHTML = boardType
+    list.innerHTML = doneNote + (boardType
       ? `<div class="empty">No jobs of this type here. Set the type back to <b>All types</b> to see the rest.</div>`
-      : `<div class="empty">No jobs match. Tap <b>+ New Job</b> to add one.</div>`;
+      : `<div class="empty">No jobs match. Tap <b>+ New Job</b> to add one.</div>`);
     return;
   }
-  list.innerHTML = jobs.map(j => {
+  list.innerHTML = doneNote + jobs.map(j => {
     const st = stageOf(j.stage);
     const bits = [];
     if(j.loss) bits.push(escapeHtml(lossLabel(j)));   // WATER CATEGORY
@@ -5034,7 +5044,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07a';
+const WB_BUILD = '2026-11-07b';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
