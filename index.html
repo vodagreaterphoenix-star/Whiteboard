@@ -841,8 +841,8 @@ html.ua-crios .sheet{max-height:88svh;}
    Equipment on site: amber (the base .map-pin colour above).
    No equipment, by stage: New green, Mitigation light blue, Demo violet,
    Estimate black. Inspection, Drying and Complete neutral grey for now.
-   No tech assigned: a pulsing red RING, so the stage colour still shows
-   inside it (it used to fill the whole pin red).
+   No tech assigned: a pulsing Voda-navy RING, so the stage colour still
+   shows inside it (it used to fill the whole pin red).
    Change a colour here and the legend under the map follows (it uses
    the same classes). ===== */
 .map-pin.st-new{background:#22A55B;color:#fff;box-shadow:0 0 0 2px rgba(34,165,91,.35),0 0 12px rgba(34,165,91,.7);}
@@ -856,7 +856,9 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.is-hot{box-shadow:0 0 0 2px rgba(225,29,72,.4),0 0 14px rgba(225,29,72,.85);}
 /* Unassigned: keep the fill, ring it red. */
 .map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
-.map-pin.has-overdue{box-shadow:0 0 0 3px #FF2D55,0 0 14px rgba(255,45,85,.85);}
+/* Voda navy (--navy), with a thin white edge outside it so it still
+   reads on the dark map, where navy alone would vanish. */
+.map-pin.has-overdue{box-shadow:0 0 0 3px #0A1F3D,0 0 0 4.5px rgba(255,255,255,.9),0 2px 8px rgba(0,0,0,.35);}
 /* DRYING DAYS: the inner ring, thicker so the colour reads at a glance.
    Day 1 green, 2 yellow, 3 and 4 orange, 5 onward red. */
 /* Class written twice on purpose: an older rule makes every pin edge
@@ -5221,7 +5223,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07i';
+const WB_BUILD = '2026-11-07j';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
