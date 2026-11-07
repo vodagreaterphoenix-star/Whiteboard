@@ -848,6 +848,10 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.st-demo{background:#8B5CF6;color:#fff;box-shadow:0 0 0 2px rgba(139,92,246,.35),0 0 12px rgba(139,92,246,.7);}
 .map-pin.st-estimate{background:#111418;color:#fff;border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 10px rgba(255,255,255,.45);}
 .map-pin.st-inspection,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
+/* HOT JOBS: asbestos or lead positive. Listed with the extra classes so
+   it also wins over the equipment and unassigned rules. */
+.map-pin.is-hot, .map-pin.is-hot.has-overdue{background:#E11D48;color:#fff;border-color:#fff;}
+.map-pin.is-hot{box-shadow:0 0 0 2px rgba(225,29,72,.4),0 0 14px rgba(225,29,72,.85);}
 /* Unassigned: keep the fill, ring it red. */
 .map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
 .map-pin.has-overdue{box-shadow:0 0 0 3px #FF2D55,0 0 14px rgba(255,45,85,.85);}
@@ -1492,6 +1496,7 @@ details.hsec{scroll-margin-top:8px;}
     <div id="mapCanvas"></div>
     <!-- PIN COLOURS: legend, using the pins' own classes so it can't drift. -->
     <div class="pin-legend">
+      <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
       <span><i class="map-pin has-equip"></i>Equipment on site</span>
       <span><i class="map-pin st-new"></i>New</span>
       <span><i class="map-pin st-mitigation"></i>Mitigation</span>
@@ -2071,10 +2076,10 @@ function renderBoard(){
     if(boardSort === 'newest' && j.created && !isNaN(Date.parse(j.created)))
       bits.push('Added ' + new Date(j.created).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
     return `<div class="eq-card" onclick="openJob(decodeURIComponent('${encodeURIComponent(j.name)}'))">
-      <div class="ribbon" style="background:${st.color}"></div>
+      <div class="ribbon" style="background:${isJobHot(j) ? '#E11D48' : st.color}"></div>
       <div class="body">
         <div class="id">${escapeHtml(j.name)}</div>
-        <div class="meta"><span class="badge" style="background:var(--gray-bg);color:var(--ink);">${st.label}</span>${ckBadges(j)}
+        <div class="meta"><span class="badge" style="background:var(--gray-bg);color:var(--ink);">${st.label}</span>${isJobHot(j) ? '<span class="badge" style="background:#E11D48;color:#fff;margin-left:4px;">Hot</span>' : ''}${ckBadges(j)}
           ${j.claim ? `<span style="color:var(--muted);font-size:11.5px;margin-left:6px;">#${escapeHtml(j.claim)}</span>` : ''}</div>
         <div class="meta" style="margin-top:3px;color:var(--muted);">${escapeHtml(j.address || 'No address yet')}</div>
         ${bits.length ? `<div class="meta" style="margin-top:3px;color:var(--muted);">${bits.join(' · ')}</div>` : ''}
@@ -3747,14 +3752,16 @@ const CHECK_FLOWS = {
   /* Asbestos: Positive finishes the testing question and makes the job
      hot; the abatement steps below carry it from there, so a hot job is
      never also shown as a stuck test. */
-  asbTest:  [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Clear', done:true },
+  /* HOT JOBS: the result reads Negative or Positive. The id stays 'clear'
+     so every answer already saved keeps working; only the label changed. */
+  asbTest:  [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Negative', done:true },
              { id:'positive', l:'Positive', done:true }],
   /* Lead has no follow-on steps yet, so Positive stays open until it is
      marked Abated. */
-  test:     [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Clear', done:true },
+  test:     [{ id:'needed', l:'Needed' }, { id:'sampled', l:'Sampled' }, { id:'clear', l:'Negative', done:true },
              { id:'positive', l:'Positive' }, { id:'abated', l:'Abated', done:true }],
   /* ASBESTOS ABATEMENT steps */
-  profile:  [{ id:'requested', l:'Requested' }, { id:'setup', l:'Set up', done:true }],
+  profile:  [{ id:'requested', l:'Requested' }, { id:'setup', l:'Created', done:true }],   // id kept for saved answers
   plan:     [{ id:'drafting', l:'Drafting' }, { id:'ready', l:'Ready', done:true }],
   abate:    [{ id:'scheduled', l:'Scheduled' }, { id:'inprogress', l:'In progress' }, { id:'done', l:'Done', done:true }],
   clearance:[{ id:'scheduled', l:'Scheduled' }, { id:'failed', l:'Failed' }, { id:'passed', l:'Passed', done:true }],
@@ -3780,8 +3787,8 @@ const CHECK_GROUPS = [
      side; abatement waits for both, since the waste can't go anywhere
      without the WM profile. */
   { id:'abatement', label:'Asbestos abatement', items:[
-    { id:'abProfile',   q:'WM waste profile', short:'WM profile', flow:'profile', always:true,
-      note:'Profile number, WM contact', when: j => isHot(j) },
+    { id:'abProfile',   q:'Has the WM profile been created?', short:'WM profile', flow:'profile', always:true,
+      note:'Profile number, WM contact', profileLink:true, when: j => isHot(j) },
     { id:'abPlan',      q:'Abatement plan engineered', short:'Plan', flow:'plan', always:true,
       note:'Containment, crew, how it gets done', when: j => isHot(j) },
     { id:'abWork',      q:'Abatement', short:'Abatement', flow:'abate', always:true,
@@ -3808,6 +3815,20 @@ const CHECK_GROUPS = [
 ];
 const CHECK_ITEMS = CHECK_GROUPS.flatMap(g => g.items.map(it => ({ ...it, group: g.id })));
 
+/* CREATE PROFILE: where the "Create profile" button goes. Paste the link
+   between the quotes; until then the button says it isn't set yet. */
+const WM_PROFILE_URL = '';
+function profileLinkButton(){
+  return WM_PROFILE_URL
+    ? `<a class="map-btn go" style="margin-top:7px;display:inline-flex;text-decoration:none;" target="_blank" rel="noopener" href="${escapeHtml(WM_PROFILE_URL)}">Create profile</a>`
+    : `<button class="map-btn" style="margin-top:7px;" disabled title="The link hasn't been added yet">Create profile (link not set yet)</button>`;
+}
+
+/* HOT JOBS: red on the map and on the Board while asbestos or lead has
+   tested Positive (or the job is abatement only). Lead stops being hot
+   once marked Abated. */
+function isJobHot(j){ return isHot(j) || ckSid(j, 'lead') === 'positive'; }
+
 /* ASBESTOS ABATEMENT helpers */
 function ckSid(j, id){ const e = (j.checklist || {})[id]; return e ? e.s : undefined; }
 function ckDone(j, id){
@@ -3817,7 +3838,9 @@ function ckDone(j, id){
 }
 /* Hot: asbestos tested positive, or a job that is abatement only. */
 function isHot(j){ return ckSid(j, 'asbestos') === 'positive' || normLoss(j.loss) === ABATE_LOSS; }
-function isLeadHot(j){ const s = ckSid(j, 'lead'); return s === 'positive' || s === 'abated'; }
+/* Hot while Positive; once marked Abated it isn't, here and on the map
+   alike (see isJobHot), so the Dashboard and the red pins always agree. */
+function isLeadHot(j){ return ckSid(j, 'lead') === 'positive'; }
 /* An item shows when it has no when(), when its when() is met, or when
    it already holds an answer. */
 function ckVisible(j, it){
@@ -3930,6 +3953,7 @@ function renderChecklist(){
           ${st && e.t ? `<div class="ck-age ${st.done ? '' : ageClass(daysSince(e.t))}">${st.l} since ${new Date(e.t).toLocaleDateString('en-US', { month:'short', day:'numeric' })} &middot; ${ageText(daysSince(e.t))}</div>` : ''}
           ${it.note ? `<input class="ck-note" placeholder="${it.note}" value="${escapeHtml(e.n || '')}" onchange="ckNote('${it.id}', this.value)">` : ''}
           ${it.access ? `<button class="map-btn" style="margin-top:7px;" onclick="openAccess()">Lockbox code is in Site access</button>` : ''}
+          ${it.profileLink ? profileLinkButton() : ''}
         ` : ''}
       </div>`;
     }).join('')}`;
@@ -3994,7 +4018,7 @@ function checkDemoWarning(j){
      disposal profile and the plan. */
   if(isHot(j)){
     const missing = [];
-    if(!ckDone(j, 'abProfile')) missing.push('the WM waste profile isn\u2019t set up');
+    if(!ckDone(j, 'abProfile')) missing.push('the WM profile hasn\u2019t been created');
     if(!ckDone(j, 'abPlan')) missing.push('the abatement plan isn\u2019t ready');
     if(missing.length) lines.push(`Asbestos is positive, and ${missing.join(' and ')}.`);
   }
@@ -4166,7 +4190,7 @@ function renderDashboard(){
       <div class="dash-stats">
         ${tile('hot', hot, 'Hot', 'hot')}
         ${tile('testwait', waiting, 'Waiting on results', '')}
-        ${tile('testclear', clear, 'Clear', 'ok')}
+        ${tile('testclear', clear, 'Negative', 'ok')}
       </div>
       ${hot ? `<div class="dash-note">Asbestos ${hotA}${hotL ? ` &middot; Lead ${hotL}` : ''}</div>` : ''}
     </div>`;
@@ -4188,7 +4212,7 @@ function renderDashboard(){
       <div class="dash-card-h">Asbestos abatement <span class="sub">${hotJobs.length} hot job${hotJobs.length !== 1 ? 's' : ''}</span></div>
       <div class="ab-profiles ${dashFilter === 'noprofile' ? 'on' : ''}" onclick="setDashFilter('noprofile')">
         <div class="big">${profSet}<small> of ${hotJobs.length}</small></div>
-        <div><b>WM profiles set up</b><br>${profReq} requested &middot; ${profNone} not started</div>
+        <div><b>WM profiles created</b><br>${profReq} requested &middot; ${profNone} not started</div>
       </div>
       <div class="ab-steps">
         <span>Plan ready <b>${planReady}</b></span>
@@ -4226,9 +4250,9 @@ function renderDashboard(){
   const FILTERS = {
     hot:       { name:'Hot',                 keep: x => isHot(x.j) || isLeadHot(x.j) },
     testwait:  { name:'Waiting on results',  keep: x => ['asbestos', 'lead'].some(id => ['needed', 'sampled'].includes(ckSid(x.j, id))) },
-    testclear: { name:'Testing clear',       keep: x => testing.includes(x) && !isHot(x.j) && !isLeadHot(x.j) &&
+    testclear: { name:'Testing negative',       keep: x => testing.includes(x) && !isHot(x.j) && !isLeadHot(x.j) &&
                    ['asbestos', 'lead'].every(id => { const e = (x.j.checklist || {})[id]; return !e || e.a !== 'yes' || e.s === 'clear'; }) },
-    noprofile: { name:'WM profile not set up', keep: x => isHot(x.j) && ckSid(x.j, 'abProfile') !== 'setup' },
+    noprofile: { name:'WM profile not created', keep: x => isHot(x.j) && ckSid(x.j, 'abProfile') !== 'setup' },
     estimates: { name:'Estimates requested', keep: x => x.j.stage === 'estimate' },
     'est:insurance': { name:'Estimates to insurance', keep: x => x.j.stage === 'estimate' && x.j.payer === 'insurance' },
     'est:self':      { name:'Estimates self-pay',     keep: x => x.j.stage === 'estimate' && x.j.payer === 'self' },
@@ -4502,6 +4526,7 @@ function pinIconFor(g){
      picks the colour. Not while selected, where the cyan "picked" look
      must show. See the PIN COLOURS CSS. */
   const colour = (g.isShop || isSel) ? ''
+               : (g.job && isJobHot(g.job)) ? ' is-hot'     // HOT JOBS: red beats every other colour
                : g.count ? ' has-equip'
                : ' st-' + (g.stage || 'new');
   const cls = 'map-pin' + (g.isShop ? ' is-shop' : '') + colour
@@ -5139,7 +5164,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07d';
+const WB_BUILD = '2026-11-07e';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
