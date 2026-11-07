@@ -833,6 +833,8 @@ html.ua-crios .sheet{max-height:88svh;}
 }
 .leaflet-tooltip.pin-label::before{display:none;}
 #mapCanvas.show-labels .leaflet-tooltip.pin-label{visibility:visible;}
+/* Zoomed further out, names are a size smaller so more of them fit. */
+#mapCanvas.labels-small .leaflet-tooltip.pin-label{font-size:10px;padding:1px 5px;max-width:120px;}
 #mapCanvas.show-labels .leaflet-tooltip.pin-label.label-clash{visibility:hidden;}
 
 /* ===== BEGIN PIN COLOURS (CSS), added 2026-11-07 =====
@@ -4587,10 +4589,12 @@ function pinHook(marker, g){
  * Touch points: pinHook (adds the label), renderMap's map setup (redoes
  * this on zoom and pan), the MAP NAME LABELS CSS block.
  * ===================================================================== */
-/* Zoom 11 is about the level where an area like Sun City West and
-   Surprise fills the map; 10 shows the whole valley. Raised from 13,
-   which needed street-level zoom. Overlapping names still wait. */
-const MAP_LABEL_ZOOM = 11;
+/* Zoom 10 is about Goodyear to Sun City across the map, with Buckeye
+   and Wittmann in view; 9 is the whole valley and beyond. Lowered from
+   11 on request. Below MAP_LABEL_FULL_ZOOM the names are drawn a size
+   smaller so more of them fit, and overlapping names still wait. */
+const MAP_LABEL_ZOOM = 10;
+const MAP_LABEL_FULL_ZOOM = 12;
 let pinLabelTimer = null;
 function updatePinLabels(){
   clearTimeout(pinLabelTimer);
@@ -4599,6 +4603,7 @@ function updatePinLabels(){
     const canvas = document.getElementById('mapCanvas');
     const on = mapObj.getZoom() >= MAP_LABEL_ZOOM;
     canvas.classList.toggle('show-labels', on);
+    canvas.classList.toggle('labels-small', mapObj.getZoom() < MAP_LABEL_FULL_ZOOM);   // further out: smaller names
     const els = Object.values(mapPinRefs)
       .map(r => { const t = r.marker.getTooltip && r.marker.getTooltip(); return t && t.getElement ? t.getElement() : null; })
       .filter(Boolean);
@@ -5179,7 +5184,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07g';
+const WB_BUILD = '2026-11-07h';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
