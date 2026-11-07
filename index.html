@@ -822,6 +822,19 @@ html.ua-crios .sheet{max-height:88svh;}
 .board-tools select{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;
   font-size:12.5px;font-weight:600;background:var(--card);color:var(--ink);}
 
+/* MAP NAME LABELS: hidden (but laid out, so they can be measured)
+   until zoomed in; see the MAP NAME LABELS JS. */
+.leaflet-tooltip.pin-label{
+  visibility:hidden;pointer-events:none;
+  background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:7px;
+  padding:2px 7px;font-size:11.5px;font-weight:700;line-height:1.3;
+  box-shadow:0 2px 6px rgba(0,0,0,.18);
+  max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.leaflet-tooltip.pin-label::before{display:none;}
+#mapCanvas.show-labels .leaflet-tooltip.pin-label{visibility:visible;}
+#mapCanvas.show-labels .leaflet-tooltip.pin-label.label-clash{visibility:hidden;}
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -3017,6 +3030,7 @@ async function renderMap(){
     mapMarkers = L.layerGroup().addTo(mapObj);
     mapEnableTwoFingerGestures(canvas);
     selAttachBox(canvas);   // ROUTE PLANNING
+    mapObj.on('zoomend moveend', updatePinLabels);   // MAP NAME LABELS
     mapFirstOpen = true;
   }
   const wantDark = appIsDark();
@@ -4473,6 +4487,10 @@ function repaintAllPins(){
 function pinHook(marker, g){
   if(g.isShop) return;
   mapPinRefs[g.label] = { marker, g };
+  /* MAP NAME LABELS: every pin carries its customer's name, kept hidden
+     until updatePinLabels decides there is room to show it. */
+  marker.bindTooltip(escapeHtml(g.label), { permanent:true, direction:'top', offset:[0,-15], className:'pin-label', opacity:1 });
+  updatePinLabels();
   if(!selMode) return;
   marker.unbindPopup();
   marker.on('click', () => {
@@ -4480,6 +4498,46 @@ function pinHook(marker, g){
     selToggle(g.label);
   });
 }
+
+/* =====================================================================
+ * BEGIN MAP NAME LABELS (JS), added 2026-11-07
+ * Customer names on the map's pins, once zoomed in far enough to read
+ * them. Zoomed out, the map looks exactly as before.
+ *
+ * Two rules decide whether a name shows:
+ *   1. The map is at MAP_LABEL_ZOOM or closer (about neighbourhood level).
+ *   2. It doesn't overlap a name already shown. Names are placed from
+ *      the top of the screen down; one that would cover another waits
+ *      until zooming in further makes room.
+ * Labels never catch taps, so pins underneath work as normal.
+ * Touch points: pinHook (adds the label), renderMap's map setup (redoes
+ * this on zoom and pan), the MAP NAME LABELS CSS block.
+ * ===================================================================== */
+const MAP_LABEL_ZOOM = 13;
+let pinLabelTimer = null;
+function updatePinLabels(){
+  clearTimeout(pinLabelTimer);
+  pinLabelTimer = setTimeout(() => {
+    if(!mapObj) return;
+    const canvas = document.getElementById('mapCanvas');
+    const on = mapObj.getZoom() >= MAP_LABEL_ZOOM;
+    canvas.classList.toggle('show-labels', on);
+    const els = Object.values(mapPinRefs)
+      .map(r => { const t = r.marker.getTooltip && r.marker.getTooltip(); return t && t.getElement ? t.getElement() : null; })
+      .filter(Boolean);
+    els.forEach(el => el.classList.remove('label-clash'));
+    if(!on) return;
+    const shown = [];
+    const PAD = 3;
+    els.map(el => ({ el, r: el.getBoundingClientRect() }))
+      .sort((a, b) => a.r.top - b.r.top || a.r.left - b.r.left)
+      .forEach(({ el, r }) => {
+        const clash = shown.some(k => r.left < k.right + PAD && r.right > k.left - PAD && r.top < k.bottom + PAD && r.bottom > k.top - PAD);
+        if(clash) el.classList.add('label-clash'); else shown.push(r);
+      });
+  }, 60);
+}
+/* END MAP NAME LABELS (JS) */
 
 function routePopupLine(name){
   const r = runOfStop(name, localDay(0));
@@ -5044,7 +5102,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07b';
+const WB_BUILD = '2026-11-07c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
