@@ -856,7 +856,14 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
 .map-pin.has-overdue{box-shadow:0 0 0 3px #FF2D55,0 0 14px rgba(255,45,85,.85);}
 /* Legend under the map. */
-.pin-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 2px 4px;font-size:11.5px;color:var(--muted);}
+.pin-key{margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+.pin-key summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 12px;
+  font-size:12.5px;font-weight:700;color:var(--ink);-webkit-tap-highlight-color:transparent;}
+.pin-key summary::-webkit-details-marker{display:none;}
+.pin-key summary::after{content:'';width:7px;height:7px;margin-left:auto;border-right:2px solid var(--muted);
+  border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;}
+.pin-key[open] summary::after{transform:rotate(-135deg);}
+.pin-legend{display:flex;flex-direction:column;gap:7px;padding:2px 12px 11px;font-size:12px;color:var(--ink);}
 .pin-legend span{display:inline-flex;align-items:center;gap:5px;}
 .pin-legend .map-pin{min-width:14px;height:14px;padding:0;border-width:1.5px;font-size:0;animation:none;}
 .pin-legend .map-pin.has-overdue{background:var(--card);}
@@ -1494,20 +1501,25 @@ details.hsec{scroll-margin-top:8px;}
     <div class="sel-bar" id="selBar" style="display:none;"></div>   <!-- ROUTE PLANNING -->
     <div class="map-warn" id="mapWarn" style="display:none;"></div>
     <div id="mapCanvas"></div>
-    <!-- PIN COLOURS: legend, using the pins' own classes so it can't drift. -->
-    <div class="pin-legend">
-      <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
-      <span><i class="map-pin has-equip"></i>Equipment on site</span>
-      <span><i class="map-pin st-new"></i>New</span>
-      <span><i class="map-pin st-mitigation"></i>Mitigation</span>
-      <span><i class="map-pin st-demo"></i>Demo</span>
-      <span><i class="map-pin st-estimate"></i>Estimate</span>
-      <span><i class="map-pin st-inspection"></i>Inspection &amp; other</span>
-      <span><i class="map-pin has-overdue"></i>No tech assigned</span>
-    </div>
+    <!-- PIN COLOURS: the Key, a dropdown under the map. Uses the pins' own
+         classes so it can't drift from what's drawn. -->
+    <details class="pin-key">
+      <summary>Key</summary>
+      <div class="pin-legend">
+        <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
+        <span><i class="map-pin has-equip"></i>Equipment on site</span>
+        <span><i class="map-pin st-new"></i>New</span>
+        <span><i class="map-pin st-mitigation"></i>Mitigation</span>
+        <span><i class="map-pin st-demo"></i>Demo</span>
+        <span><i class="map-pin st-estimate"></i>Estimate</span>
+        <span><i class="map-pin st-inspection"></i>Inspection</span>
+        <span><i class="map-pin st-drying"></i>Other (Drying, Complete)</span>
+        <span><i class="map-pin has-overdue"></i>No technician assigned</span>
+      </div>
+    </details>
     <div class="map-unplotted" id="mapNearest"></div>
     <div id="mapWhere"></div>
-    <div class="hint">Amber is a live job, teal is the shop, red needs someone on it. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone. Select picks jobs to put on someone's route.</div>
+    <div class="hint">Pin colours are explained in the Key above. Customer names appear once you zoom in to around city level. Tap a pin for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone. Select picks jobs to put on someone's route.</div>
   </div>
 
   <!-- ========================= TEAM ========================= -->
@@ -4567,7 +4579,7 @@ function pinHook(marker, g){
  * them. Zoomed out, the map looks exactly as before.
  *
  * Two rules decide whether a name shows:
- *   1. The map is at MAP_LABEL_ZOOM or closer (about neighbourhood level).
+ *   1. The map is at MAP_LABEL_ZOOM or closer (about one area of the valley).
  *   2. It doesn't overlap a name already shown. Names are placed from
  *      the top of the screen down; one that would cover another waits
  *      until zooming in further makes room.
@@ -4575,7 +4587,10 @@ function pinHook(marker, g){
  * Touch points: pinHook (adds the label), renderMap's map setup (redoes
  * this on zoom and pan), the MAP NAME LABELS CSS block.
  * ===================================================================== */
-const MAP_LABEL_ZOOM = 13;
+/* Zoom 11 is about the level where an area like Sun City West and
+   Surprise fills the map; 10 shows the whole valley. Raised from 13,
+   which needed street-level zoom. Overlapping names still wait. */
+const MAP_LABEL_ZOOM = 11;
 let pinLabelTimer = null;
 function updatePinLabels(){
   clearTimeout(pinLabelTimer);
@@ -5164,7 +5179,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07e';
+const WB_BUILD = '2026-11-07g';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
