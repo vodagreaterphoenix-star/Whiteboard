@@ -857,6 +857,15 @@ html.ua-crios .sheet{max-height:88svh;}
 /* Unassigned: keep the fill, ring it red. */
 .map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
 .map-pin.has-overdue{box-shadow:0 0 0 3px #FF2D55,0 0 14px rgba(255,45,85,.85);}
+/* DRYING DAYS: the inner ring, thicker so the colour reads at a glance.
+   Day 1 green, 2 yellow, 3 and 4 orange, 5 onward red. */
+/* Class written twice on purpose: an older rule makes every pin edge
+   white in light mode (html:not([data-theme="dark"]) .map-pin), and it
+   outranks a single class. Doubling it wins without !important. */
+.map-pin.map-pin.day-1{border:3px solid #22C55E;}
+.map-pin.map-pin.day-2{border:3px solid #FACC15;}
+.map-pin.map-pin.day-3{border:3px solid #F97316;}
+.map-pin.map-pin.day-5{border:3px solid #DC2626;}
 /* Legend under the map. */
 .pin-key{margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
 .pin-key summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:9px 12px;
@@ -1509,7 +1518,12 @@ details.hsec{scroll-margin-top:8px;}
       <summary>Key</summary>
       <div class="pin-legend">
         <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
-        <span><i class="map-pin has-equip"></i>Equipment on site</span>
+        <span style="color:var(--muted);">Number inside = days the equipment has been on site. Its ring:</span>
+        <span><i class="map-pin st-inspection day-1"></i>Day 1</span>
+        <span><i class="map-pin st-inspection day-2"></i>Day 2</span>
+        <span><i class="map-pin st-inspection day-3"></i>Days 3 &ndash; 4</span>
+        <span><i class="map-pin st-inspection day-5"></i>Day 5 and beyond (past the demo deadline)</span>
+        <span style="color:var(--muted);margin-top:4px;">Inside colour = the job:</span>
         <span><i class="map-pin st-new"></i>New</span>
         <span><i class="map-pin st-mitigation"></i>Mitigation</span>
         <span><i class="map-pin st-demo"></i>Demo</span>
@@ -1895,7 +1909,10 @@ function allJobs(){
       address: c.address || '',
       ...w,
       stage: w.stage || (items.length ? 'mitigation' : 'new'),
-      equipCount: items.length
+      equipCount: items.length,
+      /* DRYING DAYS: the earliest checkout among what's on site now, so
+         adding a unit on day 3 doesn't restart the count. */
+      equipSince: items.map(i => i.checkedOutDate).filter(Boolean).sort()[0] || ''
     };
   });
 }
@@ -3114,7 +3131,7 @@ async function renderMap(){
       : `<div class="it">${escapeHtml(st.label)}${j.tech ? ` &middot; ${escapeHtml(j.tech)}` : ' &middot; unassigned'}
            ${j.loss ? `<br>${escapeHtml(lossLabel(j))}` : ''}
            ${j.claim ? `<br>Claim #${escapeHtml(j.claim)}` : ''}
-           ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site` : ''}${routePopupLine(g.label)}</div>`;
+           ${g.count ? `<br>${g.count} unit${g.count!==1?'s':''} on site${dryingDay(j) ? ` &middot; day ${dryingDay(j)} of drying` : ''}` : ''}${routePopupLine(g.label)}</div>`;
     const call = j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g,''))}">Call</a>` : '';
     const open = g.isShop ? '' :
       `<div class="map-nav-row" style="margin-top:5px;">
@@ -4536,22 +4553,42 @@ function refreshRouteViews(){
 function pinIconFor(g){
   const run = (selMode && !g.isShop) ? runOfStop(g.label, selDate) : null;
   const isSel = selMode && selected.has(g.label);
-  /* PIN COLOURS: equipment on site wins (amber); otherwise the stage
-     picks the colour. Not while selected, where the cyan "picked" look
-     must show. See the PIN COLOURS CSS. */
+  /* PIN COLOURS: the fill is the job's stage colour, or red if it's hot.
+     DRYING DAYS: with equipment on site, the number is the drying day
+     and the inner ring counts up green, yellow, orange, red (dayRingClass).
+     Not while selected, where the cyan "picked" look must show. */
   const colour = (g.isShop || isSel) ? ''
                : (g.job && isJobHot(g.job)) ? ' is-hot'     // HOT JOBS: red beats every other colour
-               : g.count ? ' has-equip'
                : ' st-' + (g.stage || 'new');
-  const cls = 'map-pin' + (g.isShop ? ' is-shop' : '') + colour
+  const day = (!g.isShop && g.job) ? dryingDay(g.job) : null;
+  const ring = (day && !isSel) ? ' ' + dayRingClass(day) : '';
+  const cls = 'map-pin' + (g.isShop ? ' is-shop' : '') + colour + ring
             /* While planning, a pin already on someone's route is handled for
                that day, so it drops the red "nobody assigned" pulse. */
             + (g.needsAttention && !isSel && !run ? ' has-overdue' : '')
             + (isSel ? ' is-selected' : '')
             + (run && !isSel ? ' is-taken' : '');
-  const face = g.isShop ? '&#8962;' : (g.count || '&bull;');
+  /* The drying day, or the unit count for older records with no checkout
+     date, or a dot when nothing is on site. */
+  const face = g.isShop ? '&#8962;' : (day || g.count || '&bull;');
   const tag = run ? `<span class="pin-tag">${escapeHtml(initials(run.tech))}</span>` : '';
   return L.divIcon({ className:'', html:`<div class="${cls}">${face}${tag}</div>`, iconSize:[28,28], iconAnchor:[14,14] });
+}
+
+/* DRYING DAYS: day 1 is the day the first equipment went in. Counted in
+   the phone's own time zone, so a job set at 4pm isn't on day 2 by
+   evening. null when nothing is on site or the date is unknown. */
+function dryingDay(j){
+  if(!j || !j.equipCount || !j.equipSince) return null;
+  const set = new Date(j.equipSince + 'T00:00:00');
+  if(isNaN(set)) return null;
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.max(1, Math.round((now - set) / 86400000) + 1);
+}
+/* 1 green, 2 yellow, 3 and 4 orange, 5 onward red: 5 is the demo
+   deadline. Change the cut-offs here; the colours are in the CSS. */
+function dayRingClass(day){
+  return day >= 5 ? 'day-5' : day >= 3 ? 'day-3' : day === 2 ? 'day-2' : 'day-1';
 }
 
 function repaintAllPins(){
@@ -5184,7 +5221,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07h';
+const WB_BUILD = '2026-11-07i';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
