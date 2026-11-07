@@ -861,6 +861,16 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.has-overdue{box-shadow:0 0 0 3px #0A1F3D,0 0 0 4.5px rgba(255,255,255,.9),0 2px 8px rgba(0,0,0,.35);}
 /* DRYING DAYS: the inner ring, thicker so the colour reads at a glance.
    Day 1 green, 2 yellow, 3 and 4 orange, 5 onward red. */
+/* NO EQUIPMENT YET: the inner circle is the same colour as the dot, so
+   the pin reads as one solid colour. The day rules below come after
+   these and win once equipment is placed. Doubled class for the same
+   reason as there (beats the old white-edge rule). */
+.map-pin.map-pin.st-new{border-color:#22A55B;}
+.map-pin.map-pin.st-mitigation{border-color:#6EC1FF;}
+.map-pin.map-pin.st-demo{border-color:#8B5CF6;}
+.map-pin.map-pin.st-estimate{border-color:#111418;}
+.map-pin.map-pin.st-inspection,.map-pin.map-pin.st-drying,.map-pin.map-pin.st-complete{border-color:#9AA5B1;}
+.map-pin.map-pin.is-hot{border-color:#E11D48;}
 /* Class written twice on purpose: an older rule makes every pin edge
    white in light mode (html:not([data-theme="dark"]) .map-pin), and it
    outranks a single class. Doubling it wins without !important. */
@@ -5223,7 +5233,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07j';
+const WB_BUILD = '2026-11-07k';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
