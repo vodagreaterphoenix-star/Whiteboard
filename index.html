@@ -5034,7 +5034,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-10-24c';
+const WB_BUILD = '2026-11-07a';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
@@ -5047,18 +5047,39 @@ function renderBuildInfo(){
     `<span style="font-family:ui-monospace,Menlo,monospace;font-size:10.5px;word-break:break-all;">${escapeHtml(navigator.userAgent)}</span>`;
 }
 function openSettings(){ renderBuildInfo(); openModal('modalSettings'); }
+/* SHARED THEME: light or dark is one setting for both apps. Both live on
+   vodagreaterphoenix-star.github.io, so they share the phone's storage;
+   the Whiteboard reads and writes the Equipment Tracker's own setting
+   (voda-eq-theme) and follows its rule: dark only when dark was chosen,
+   light otherwise. The Tracker needs no change for this.
+   The Whiteboard's old setting (voda-wb-theme) is read once, only if
+   the shared one is empty, so nobody's current choice is lost. */
+const THEME_KEY = 'voda-eq-theme';
+const OLD_THEME_KEY = 'voda-wb-theme';
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+  // The map's tiles are picked by theme when it's drawn.
+  if(typeof mapObj !== 'undefined' && mapObj && document.getElementById('view-map').classList.contains('active')) renderMap();
+}
 function toggleTheme(){
-  const el = document.documentElement;
-  const next = el.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  el.setAttribute('data-theme', next);
-  try{ localStorage.setItem('voda-wb-theme', next); }catch(e){}
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
 }
 function initTheme(){
   let t = null;
-  try{ t = localStorage.getItem('voda-wb-theme'); }catch(e){}
-  if(!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', t);
+  try{
+    t = localStorage.getItem(THEME_KEY);
+    if(!t){
+      t = localStorage.getItem(OLD_THEME_KEY);
+      if(t) localStorage.setItem(THEME_KEY, t);
+    }
+  }catch(e){}
+  document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
 }
+/* Changed in the Tracker while the Whiteboard is open in another tab:
+   follow it straight away. */
+window.addEventListener('storage', e => { if(e.key === THEME_KEY && e.newValue) applyTheme(e.newValue); });
 
 /* ============ INIT ============ */
 initTheme();
