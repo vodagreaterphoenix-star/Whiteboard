@@ -835,6 +835,29 @@ html.ua-crios .sheet{max-height:88svh;}
 #mapCanvas.show-labels .leaflet-tooltip.pin-label{visibility:visible;}
 #mapCanvas.show-labels .leaflet-tooltip.pin-label.label-clash{visibility:hidden;}
 
+/* ===== BEGIN PIN COLOURS (CSS), added 2026-11-07 =====
+   Equipment on site: amber (the base .map-pin colour above).
+   No equipment, by stage: New green, Mitigation light blue, Demo violet,
+   Estimate black. Inspection, Drying and Complete neutral grey for now.
+   No tech assigned: a pulsing red RING, so the stage colour still shows
+   inside it (it used to fill the whole pin red).
+   Change a colour here and the legend under the map follows (it uses
+   the same classes). ===== */
+.map-pin.st-new{background:#22A55B;color:#fff;box-shadow:0 0 0 2px rgba(34,165,91,.35),0 0 12px rgba(34,165,91,.7);}
+.map-pin.st-mitigation{background:#6EC1FF;color:#04202A;box-shadow:0 0 0 2px rgba(110,193,255,.35),0 0 12px rgba(110,193,255,.7);}
+.map-pin.st-demo{background:#8B5CF6;color:#fff;box-shadow:0 0 0 2px rgba(139,92,246,.35),0 0 12px rgba(139,92,246,.7);}
+.map-pin.st-estimate{background:#111418;color:#fff;border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 10px rgba(255,255,255,.45);}
+.map-pin.st-inspection,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
+/* Unassigned: keep the fill, ring it red. */
+.map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
+.map-pin.has-overdue{box-shadow:0 0 0 3px #FF2D55,0 0 14px rgba(255,45,85,.85);}
+/* Legend under the map. */
+.pin-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:8px 2px 4px;font-size:11.5px;color:var(--muted);}
+.pin-legend span{display:inline-flex;align-items:center;gap:5px;}
+.pin-legend .map-pin{min-width:14px;height:14px;padding:0;border-width:1.5px;font-size:0;animation:none;}
+.pin-legend .map-pin.has-overdue{background:var(--card);}
+/* ===== END PIN COLOURS (CSS) ===== */
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -1467,6 +1490,16 @@ details.hsec{scroll-margin-top:8px;}
     <div class="sel-bar" id="selBar" style="display:none;"></div>   <!-- ROUTE PLANNING -->
     <div class="map-warn" id="mapWarn" style="display:none;"></div>
     <div id="mapCanvas"></div>
+    <!-- PIN COLOURS: legend, using the pins' own classes so it can't drift. -->
+    <div class="pin-legend">
+      <span><i class="map-pin has-equip"></i>Equipment on site</span>
+      <span><i class="map-pin st-new"></i>New</span>
+      <span><i class="map-pin st-mitigation"></i>Mitigation</span>
+      <span><i class="map-pin st-demo"></i>Demo</span>
+      <span><i class="map-pin st-estimate"></i>Estimate</span>
+      <span><i class="map-pin st-inspection"></i>Inspection &amp; other</span>
+      <span><i class="map-pin has-overdue"></i>No tech assigned</span>
+    </div>
     <div class="map-unplotted" id="mapNearest"></div>
     <div id="mapWhere"></div>
     <div class="hint">Amber is a live job, teal is the shop, red needs someone on it. Tap one for contact details, directions and a way straight into the job. Two fingers to pan and zoom on a phone. Select picks jobs to put on someone's route.</div>
@@ -3050,11 +3083,9 @@ async function renderMap(){
     const pt = g.isShop ? shopPoint() : geocache[mapNorm(g.address)];
     if(!pt){ if(!g.isShop) unplotted.push(g); return; }
     plotted++;
-    /* The tracker's exact pin classes, so the two maps are the same map
-       with different contents. Amber for a live job, teal for the shop,
-       red for anything needing attention. The stage is carried by the
-       chips and the popup rather than by the pin colour — colouring pins
-       seven ways made the map harder to read, not easier. */
+    /* PIN COLOURS: amber when equipment is on site, otherwise the job's
+       stage colour; teal for the shop; a pulsing red ring when no tech is
+       assigned. pinIconFor picks the classes. */
     const st = g.isShop ? null : stageOf(g.stage);
     const icon = pinIconFor(g);   // ROUTE PLANNING: same pins, plus selected and taken states
     const dist = myPosition ? ` &middot; ${mapDistanceMi(myPosition, pt).toFixed(1)} mi away` : '';
@@ -4467,7 +4498,13 @@ function refreshRouteViews(){
 function pinIconFor(g){
   const run = (selMode && !g.isShop) ? runOfStop(g.label, selDate) : null;
   const isSel = selMode && selected.has(g.label);
-  const cls = 'map-pin' + (g.isShop ? ' is-shop' : '')
+  /* PIN COLOURS: equipment on site wins (amber); otherwise the stage
+     picks the colour. Not while selected, where the cyan "picked" look
+     must show. See the PIN COLOURS CSS. */
+  const colour = (g.isShop || isSel) ? ''
+               : g.count ? ' has-equip'
+               : ' st-' + (g.stage || 'new');
+  const cls = 'map-pin' + (g.isShop ? ' is-shop' : '') + colour
             /* While planning, a pin already on someone's route is handled for
                that day, so it drops the red "nobody assigned" pulse. */
             + (g.needsAttention && !isSel && !run ? ' has-overdue' : '')
@@ -5102,7 +5139,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07c';
+const WB_BUILD = '2026-11-07d';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
