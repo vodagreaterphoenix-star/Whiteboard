@@ -895,6 +895,25 @@ html.ua-crios .sheet{max-height:88svh;}
 .pin-legend .map-pin.has-overdue{background:var(--card);}
 /* ===== END PIN COLOURS (CSS) ===== */
 
+/* ===== BEGIN LIVE LOCATION (CSS), added 2026-11-07 =====
+   Your stops: a hint of light blue (navy in dark mode). Other jobs: white
+   (a slightly lighter navy in dark mode). ===== */
+.stop.mine{background:#EAF5FF;border-color:#BFE0FF;}
+[data-theme="dark"] .stop.mine{background:#0A1F3D;border-color:#1E3A66;}
+/* On a navy card, the navy number circle and Done button would vanish. */
+[data-theme="dark"] .stop.mine:not(.done) .stop-n{background:#2B4C80;color:#fff;}
+[data-theme="dark"] .stop.mine .map-btn.go{background:var(--cyan);border-color:var(--cyan);color:#04202A;}
+.stop.other{background:#FFFFFF;}
+[data-theme="dark"] .stop.other{background:#1A2B45;border-color:#2A3D5A;}
+.stop.here{box-shadow:0 0 0 2px var(--cyan);}
+.here-tag{display:inline-block;margin-top:6px;font-size:11px;font-weight:800;letter-spacing:.3px;text-transform:uppercase;
+  color:#04202A;background:#00E5FF;border-radius:6px;padding:2px 7px;}
+.rt-sortbar{display:flex;margin:4px 0 8px;}
+.live-note{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);margin:0 2px 10px;line-height:1.4;}
+.live-note.warn{color:var(--amber);}
+.live-dot{width:8px;height:8px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);flex-shrink:0;}
+/* ===== END LIVE LOCATION (CSS) ===== */
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -2492,6 +2511,7 @@ function switchView(v){
   if(v==='jobs') renderClientsList();
   if(v==='map') renderMap();   // MAP FEATURE: draw the map when the tab opens
   if(v==='route') renderRoute();   // ROUTE PLANNING
+  liveLocationSync();              // LIVE LOCATION: GPS only while Route is open
   if(v==='dashboard') renderDashboard();   // JOB CHECKLIST
   renderSelTray();                 // ROUTE PLANNING: the tray only shows on the Map tab
 }
@@ -4378,7 +4398,7 @@ const ROUTE_CFG = {
      Straight-line miles between pins, not drive time. */
   SPREAD_WARN_MI: 8,
   /* How many unclaimed jobs to offer under a technician's route. */
-  GRABS_SHOWN: 8
+  GRABS_SHOWN: 10
 };
 
 /* Why a stop is on a route. Monitor and Pickup are suggested from the
@@ -4911,6 +4931,7 @@ function setRouteTech(v){
   routeLastFitKey = '';
   try{ localStorage.setItem('voda-wb-route-tech', v); }catch(e){}
   renderRoute();
+  liveLocationSync();   // LIVE LOCATION: start or stop the GPS for this choice
 }
 function setRouteDate(d){
   if(!d) return;
@@ -4918,6 +4939,120 @@ function setRouteDate(d){
   routeLastFitKey = '';
   renderRoute();
 }
+
+/* =====================================================================
+ * BEGIN LIVE LOCATION (JS), added 2026-11-07
+ * Each tech sees themselves: the phone's GPS sorts the Route tab by
+ * where they are now. Nothing is sent anywhere; the position stays on
+ * the phone.
+ *
+ * Runs only while the Route tab is open and on screen (a web app can't
+ * track in the background, and this saves battery). Stops when the tab
+ * changes, the phone locks, or the app goes to the background.
+ *
+ * Nearest to me: the job you're at ("You're here", within HERE_MI) on
+ * top, then closest first, finished stops last. Re-sorts only after
+ * moving RESORT_MI, so the list doesn't jump under a thumb. Planned
+ * order shows the route as planned, with the arrows to rearrange it.
+ * Touch points: renderRoute, renderGrabs, drawRouteMap's caller,
+ * switchView, setRouteTech, and the LIVE LOCATION CSS.
+ * ===================================================================== */
+const LIVE_CFG = {
+  HERE_MI: 0.085,    // about 150 yards: close enough to count as "at" a job
+  RESORT_MI: 0.1     // move this far before the list re-sorts
+};
+let routeSort = 'near';
+try{ if(localStorage.getItem('voda-wb-route-sort') === 'plan') routeSort = 'plan'; }catch(e){}
+let liveWatchId = null, liveSortedAt = null, liveState = 'off';
+let routeMeMarker = null;
+
+function setRouteSort(v){
+  routeSort = v;
+  try{ localStorage.setItem('voda-wb-route-sort', v); }catch(e){}
+  liveSortedAt = myPosition;
+  renderRoute();
+}
+
+function liveWanted(){
+  return document.visibilityState === 'visible'
+      && document.getElementById('view-route').classList.contains('active')
+      && routeTech && routeTech !== '*';
+}
+function liveLocationSync(){ if(liveWanted()) liveStart(); else liveStop(); }
+function liveStart(){
+  if(!navigator.geolocation){ liveState = 'unsupported'; return; }
+  if(liveWatchId !== null) return;
+  if(liveState !== 'on') liveState = myPosition ? 'on' : 'finding';
+  liveWatchId = navigator.geolocation.watchPosition(liveOnPosition, liveOnError,
+    { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+}
+function liveStop(){
+  if(liveWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(liveWatchId);
+  liveWatchId = null;
+}
+function liveOnPosition(pos){
+  myPosition = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+  const first = liveState !== 'on';
+  liveState = 'on';
+  updateRouteMeMarker();
+  const moved = !liveSortedAt || mapDistanceMi(liveSortedAt, myPosition) > LIVE_CFG.RESORT_MI;
+  if(first || moved){
+    liveSortedAt = myPosition;
+    if(document.getElementById('view-route').classList.contains('active')) renderRoute();
+  }
+}
+function liveOnError(err){
+  if(err && err.code === 1){                    // they said no; don't keep asking
+    liveState = 'denied';
+    liveStop();
+  } else if(liveState === 'on' && myPosition){
+    /* A brief loss of signal (a tunnel, a garage, a dead spot) after we
+       already know where they are: keep the last position and leave the
+       list alone, so it doesn't redraw twice under a thumb. */
+    return;
+  } else {
+    liveState = 'unavailable';
+  }
+  if(document.getElementById('view-route').classList.contains('active')) renderRoute();
+}
+document.addEventListener('visibilitychange', liveLocationSync);
+
+/* The live blue dot on the Route tab's small map. Moved in place on each
+   update rather than redrawing the map. */
+function updateRouteMeMarker(){
+  if(!routeMapObj || !myPosition || typeof L === 'undefined') return;
+  const ll = [myPosition.lat, myPosition.lon];
+  if(routeMeMarker){ routeMeMarker.setLatLng(ll); return; }
+  routeMeMarker = L.marker(ll, {
+      icon: L.divIcon({ className:'', html:'<div class="map-pin is-me"></div>', iconSize:[18,18], iconAnchor:[9,9] }),
+      zIndexOffset: 1000 })
+    .bindPopup('<div class="map-pop"><div class="nm">You are here</div></div>')
+    .addTo(routeMapObj);
+}
+
+function liveStatusHtml(){
+  if(routeSort !== 'near') return '';
+  const msg = {
+    finding:     'Finding where you are\u2026',
+    denied:      'Location is off. Allow location for this site in your phone\u2019s settings to sort by distance.',
+    unavailable: 'Can\u2019t get your location right now, so this is the planned order.',
+    unsupported: 'This browser can\u2019t share location, so this is the planned order.'
+  }[liveState];
+  if(msg) return `<div class="live-note ${liveState === 'finding' ? '' : 'warn'}">${msg}</div>`;
+  if(liveState === 'on') return `<div class="live-note"><span class="live-dot"></span>Sorted by where you are now</div>`;
+  return '';
+}
+
+/* The order the list is shown in. Each entry keeps its planned position
+   (i), which is what Done, Move and Take off act on. */
+function routeDisplayOrder(stops){
+  const items = stops.map((s, i) => ({ s, i, d: null }));
+  if(routeSort !== 'near' || !myPosition) return items;
+  items.forEach(x => { const p = jobPoint(x.s.name); x.d = p ? mapDistanceMi(myPosition, p) : null; });
+  return items.sort((a, b) => (Number(!!a.s.done) - Number(!!b.s.done))
+                           || ((a.d === null ? 1e9 : a.d) - (b.d === null ? 1e9 : b.d)));
+}
+/* END LIVE LOCATION (JS) */
 
 function renderRoute(){
   if(!routeDate) routeDate = localDay(0);
@@ -4950,17 +5085,24 @@ function renderRoute(){
   const run = runFor(routeTech, routeDate);
   const stops = run ? run.stops : [];
   canvas.style.display = stops.length ? '' : 'none';
-  if(stops.length) drawRouteMap(stops);
+  if(stops.length) drawRouteMap(stops).then(updateRouteMeMarker);   // LIVE LOCATION: the blue dot
 
   const done = stops.filter(s => s.done).length;
+  /* LIVE LOCATION: nearest-to-me or planned, and what the GPS is doing. */
+  const sortBar = `<div class="rt-sortbar"><div class="board-sort" role="group" aria-label="Order">
+      <button class="${routeSort === 'near' ? 'on' : ''}" onclick="setRouteSort('near')">Nearest to me</button>
+      <button class="${routeSort === 'plan' ? 'on' : ''}" onclick="setRouteSort('plan')">Planned order</button>
+    </div></div>` + liveStatusHtml();
   const head = stops.length
     ? `<div class="rt-sum"><span>${stops.length} stop${stops.length !== 1 ? 's' : ''}${done ? ` &middot; ${done} done` : ''}
          &middot; about ${routeMiles(stops.map(s => s.name)).toFixed(0)} mi from the shop and back, straight line</span>
-         ${stops.length - done > 1 ? `<button class="map-btn" onclick="routeResort()">Nearest first</button>` : ''}</div>`
+         ${stops.length - done > 1 && routeSort === 'plan' ? `<button class="map-btn" onclick="routeResort()">Nearest first</button>` : ''}</div>`
     : `<div class="empty" style="padding:24px 20px;">Nothing on your route ${dayPhrase(routeDate)} yet.</div>`;
 
-  const cards = stops.map((s, i) => {
+  const near = routeSort === 'near' && !!myPosition;
+  const cards = routeDisplayOrder(stops).map(({ s, i, d }) => {
     const j = jobByName(s.name) || {};
+    const here = near && d !== null && d <= LIVE_CFG.HERE_MI;
     const addr = j.address || '';
     const dest = encodeURIComponent(addr);
     const nav = addr ? `<div class="map-nav-row" style="margin-top:9px;">
@@ -4969,18 +5111,20 @@ function renderRoute(){
         <a class="w" target="_blank" rel="noopener" href="https://www.waze.com/ul?q=${dest}&navigate=yes">Waze</a>
         ${j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g, ''))}">Call</a>` : ''}
       </div>` : '';
-    return `<div class="stop ${s.done ? 'done' : ''}">
+    return `<div class="stop mine ${s.done ? 'done' : ''} ${here ? 'here' : ''}">
       <div class="stop-head">
         <div class="stop-n">${s.done ? '&#10003;' : i + 1}</div>
         <div style="flex:1;min-width:0;">
           <div class="stop-name">${escapeHtml(s.name)}</div>
           <div class="stop-addr">${escapeHtml(addr || 'No address on this job')}</div>
           ${whyChips(s.why)}
+          ${here ? `<div class="here-tag">You're here</div>`
+                 : (near && d !== null ? `<div class="stop-note quiet">${d.toFixed(1)} mi away</div>` : '')}
         </div>
-        <div class="stop-order">
+        ${near ? '' : `<div class="stop-order">
           <button class="map-btn" onclick="routeMove(${i},-1)" ${i === 0 ? 'disabled' : ''} aria-label="Move up">&#9650;</button>
           <button class="map-btn" onclick="routeMove(${i},1)" ${i === stops.length - 1 ? 'disabled' : ''} aria-label="Move down">&#9660;</button>
-        </div>
+        </div>`}
       </div>
       ${nav}
       <div class="stop-acts">
@@ -4991,35 +5135,42 @@ function renderRoute(){
     </div>`;
   }).join('');
 
-  list.innerHTML = warn + head + cards + renderGrabs(stops);
+  list.innerHTML = warn + sortBar + head + cards + renderGrabs(stops);
 }
 
-/* Jobs that need a visit and that nobody has, closest to this route
-   first. With no stops yet, closest to where the technician is, or to
+/* LIVE LOCATION: every other job near you, closest first: unrouted ones
+   (with Add) and ones on another tech's route (labelled whose). Measured
+   from where you are, or without a location from your nearest stop, or
    the shop. */
 function renderGrabs(stops){
-  const mine = stops.map(s => jobPoint(s.name)).filter(Boolean);
-  const origin = mine.length ? null : (myPosition || shopPoint());
-  const fromWhat = mine.length ? 'your nearest stop' : (myPosition ? 'you' : 'the shop');
-  const rows = unclaimedJobs(routeDate).map(j => {
-    const p = jobPoint(j.name);
-    if(!p) return null;
-    const d = mine.length ? Math.min(...mine.map(m => mapDistanceMi(m, p))) : (origin ? mapDistanceMi(origin, p) : 0);
-    return { j, d };
-  }).filter(Boolean).sort((a, b) => a.d - b.d).slice(0, ROUTE_CFG.GRABS_SHOWN);
+  const mine = new Set(stops.map(s => s.name));
+  const minePts = stops.map(s => jobPoint(s.name)).filter(Boolean);
+  const shop = shopPoint();
+  const fromWhat = myPosition ? 'you' : minePts.length ? 'your nearest stop' : 'the shop';
+  const rows = allJobs()
+    .filter(j => !mine.has(j.name) && j.address && (j.stage !== 'complete' || j.equipCount))
+    .map(j => {
+      const p = jobPoint(j.name);
+      if(!p) return null;
+      const d = myPosition ? mapDistanceMi(myPosition, p)
+              : minePts.length ? Math.min(...minePts.map(m => mapDistanceMi(m, p)))
+              : (shop ? mapDistanceMi(shop, p) : 0);
+      return { j, d, run: runOfStop(j.name, routeDate) };
+    })
+    .filter(Boolean).sort((a, b) => a.d - b.d).slice(0, ROUTE_CFG.GRABS_SHOWN);
 
-  if(!rows.length) return `<div class="section-title">Up for grabs</div>
-    <div class="hint" style="margin-top:0;">Every job that needs a visit ${dayPhrase(routeDate)} is on someone's route.</div>`;
-  return `<div class="section-title">Up for grabs nearby</div>` + rows.map(({ j, d }) => `
-    <div class="stop">
+  if(!rows.length) return `<div class="section-title">Other jobs nearby</div>
+    <div class="hint" style="margin-top:0;">No other jobs on the map ${dayPhrase(routeDate)}.</div>`;
+  return `<div class="section-title">Other jobs nearby</div>` + rows.map(({ j, d, run }) => `
+    <div class="stop other">
       <div class="stop-head">
         <div style="flex:1;min-width:0;">
           <div class="stop-name">${escapeHtml(j.name)}</div>
           <div class="stop-addr">${escapeHtml(j.address)}</div>
           ${whyChips(suggestedReasons(j))}
-          <div class="stop-note ${d > ROUTE_CFG.SPREAD_WARN_MI ? '' : 'quiet'}">${d.toFixed(1)} mi from ${fromWhat}</div>
+          <div class="stop-note quiet">${d.toFixed(1)} mi from ${fromWhat} &middot; ${run ? `On ${escapeHtml(run.tech)}'s route` : 'Not on anyone\u2019s route'}</div>
         </div>
-        <button class="map-btn go" onclick="routeGrab(${qa(j.name)})">Add</button>
+        ${run ? '' : `<button class="map-btn go" onclick="routeGrab(${qa(j.name)})">Add</button>`}
       </div>
     </div>`).join('');
 }
@@ -5237,7 +5388,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07l';
+const WB_BUILD = '2026-11-07m';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
