@@ -914,6 +914,14 @@ html.ua-crios .sheet{max-height:88svh;}
 .live-dot{width:8px;height:8px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.25);flex-shrink:0;}
 /* ===== END LIVE LOCATION (CSS) ===== */
 
+/* PASTE A LIST: the preview rows. */
+.pl-row{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--card);}
+.pl-row input{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--navy);}
+.pl-row.dupe{opacity:.55;}
+.pl-name{font-weight:700;font-size:13.5px;}
+.pl-addr{font-size:12px;color:var(--muted);margin-top:1px;}
+.pl-why{font-size:11.5px;font-weight:700;color:var(--amber);margin-top:3px;}
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -1731,6 +1739,12 @@ details.hsec{scroll-margin-top:8px;}
   <div class="hint" style="margin:0 0 8px;">TrueRestore, Workiz or JobNimbus screenshots of the same job. Pick one or several.</div>
   <div id="njImport"></div>
   <!-- END SCREENSHOT IMPORT (HTML) -->
+  <!-- PASTE A LIST: many jobs at once. See that JS block. -->
+  <button class="imp-btn" onclick="openPasteList()" style="margin-top:2px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    Paste a list of jobs
+  </button>
+  <div class="hint" style="margin:0 0 12px;">Several jobs at once, one per line. Duplicates are found and left out.</div>
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
   <div class="field"><label>Address</label><input id="njAddress" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
   <div class="field"><label>Type of loss</label><select id="njLoss" onchange="syncWaterCat('nj')"></select></div>
@@ -1808,6 +1822,23 @@ details.hsec{scroll-margin-top:8px;}
 <!-- END ROUTE PLANNING (HTML) -->
 
 <!-- showToast() writes into #toastMsg. Without it every toast threw an error. -->
+<!-- ===== BEGIN PASTE A LIST (HTML) ===== -->
+<div class="overlay" id="modalPasteList"><div class="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div><div class="sheet-title">Paste a list of jobs</div><div class="sheet-sub">One job per line: name &ndash; address &ndash; status</div></div>
+    <button class="close-x" onclick="closeModal('modalPasteList')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="field">
+    <textarea id="plText" rows="8" placeholder="1. Audra Martin – 23407 N 121st Ave, Sun City, AZ 85373 – No Status&#10;2. Stanley Hatch – 7402 Hum Rd, Carefree, AZ 85377 – Active" style="font-size:13px;"></textarea>
+    <div class="hint">Nothing is added yet. Check the list first: anything already on the board, or repeated, is left out.</div>
+  </div>
+  <div class="btn-row"><button class="btn btn-ghost" onclick="plCheck()">Check the list</button></div>
+  <div id="plPreview" style="margin-top:12px;"></div>
+  <div class="btn-row"><button class="btn btn-primary" id="plAddBtn" style="display:none;" onclick="plAdd()">Add</button></div>
+</div></div>
+<!-- ===== END PASTE A LIST (HTML) ===== -->
+
 <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
 
 <script>
@@ -2831,6 +2862,140 @@ async function createJob(){
   setTimeout(()=>openJob(name), SHEET_CLOSE_MS + 40);
 }
 
+
+/* =====================================================================
+ * BEGIN PASTE A LIST (JS), added 2026-11-07
+ * Adds many jobs at once from a pasted list, one job per line:
+ *     1. Audra Martin – 23407 N 121st Ave, Sun City, AZ 85373 – No Status
+ * Numbering is optional; the parts can be split by an en dash, an em
+ * dash, a spaced hyphen or a tab. The third part (a status from another
+ * system) is optional and kept in the job's notes.
+ *
+ * Nothing is added until "Add N jobs" is tapped. Before that, each line
+ * is checked and duplicates are left unticked:
+ *   - a customer already on the board with the same name (capitals,
+ *     punctuation and "and" versus "&" ignored), or
+ *   - the same street address, even under a different name, or
+ *   - a repeat of an earlier line in the same list.
+ * New jobs start at New, exactly as the New Job form makes them.
+ * Touch points: the button and modal markup (PASTE A LIST HTML).
+ * ===================================================================== */
+let pasteRows = [];
+
+function openPasteList(){
+  closeModal('modalNewJob');
+  document.getElementById('plText').value = '';
+  document.getElementById('plPreview').innerHTML = '';
+  document.getElementById('plAddBtn').style.display = 'none';
+  pasteRows = [];
+  setTimeout(() => openModal('modalPasteList'), SHEET_CLOSE_MS + 20);
+}
+
+/* Names compared loosely: "Shannon And Ryan Etherton" and
+   "Shannon & Ryan Etherton" are the same customer. */
+function plNameKey(n){
+  return String(n || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+/* Addresses compared by house number and street, so "14419 N 44th Dr"
+   matches whether or not the city, a comma or "Drive" follow it. */
+const PL_STREET_WORDS = { north:'n', south:'s', east:'e', west:'w', drive:'dr', road:'rd', lane:'ln',
+  street:'st', avenue:'ave', av:'ave', court:'ct', boulevard:'blvd', place:'pl', circle:'cir',
+  terrace:'ter', trail:'trl', parkway:'pkwy', highway:'hwy' };
+const PL_STREET_TYPES = new Set(['dr','rd','ln','st','ave','ct','blvd','pl','cir','ter','trl','pkwy','hwy','way','loop','run','path']);
+function plAddrKey(a){
+  const t = String(a || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ')
+    .filter(Boolean).map(w => PL_STREET_WORDS[w] || w);
+  if(!t.length || !/^\d/.test(t[0])) return '';
+  const end = t.findIndex((w, i) => i > 1 && PL_STREET_TYPES.has(w));
+  return t.slice(0, end > 0 ? end + 1 : Math.min(t.length, 3)).join(' ');
+}
+
+function plParse(text){
+  return String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((line, idx) => {
+    const body = line.replace(/^\s*\d+[.)]\s*/, '');                 // "12." or "12)"
+    const parts = body.split(/\s+[\u2013\u2014-]\s+|\t+/).map(x => x.trim()).filter(Boolean);
+    return { line: idx + 1, name: parts[0] || '', address: parts[1] || '',
+             status: parts.slice(2).join(' - '), raw: line };
+  });
+}
+
+function plCheck(){
+  const rows = plParse(document.getElementById('plText').value);
+  const haveNames = new Map(clients.map(c => [plNameKey(c.name), c.name]));
+  const haveAddrs = new Map();
+  clients.forEach(c => { const k = plAddrKey(c.address); if(k && !haveAddrs.has(k)) haveAddrs.set(k, c.name); });
+  const seenNames = new Map(), seenAddrs = new Map();
+
+  pasteRows = rows.map(r => {
+    const nk = plNameKey(r.name), ak = plAddrKey(r.address);
+    let why = '';
+    if(!r.name) why = 'No name on this line';
+    else if(haveNames.has(nk)) why = `Already on the board as ${haveNames.get(nk)}`;
+    else if(ak && haveAddrs.has(ak)) why = `Same address as ${haveAddrs.get(ak)}`;
+    else if(seenNames.has(nk)) why = `Repeats line ${seenNames.get(nk)}`;
+    else if(ak && seenAddrs.has(ak)) why = `Same address as line ${seenAddrs.get(ak)}`;
+    else if(coordsFromText(r.address)) why = 'Address looks like coordinates';
+    if(!why){ seenNames.set(nk, r.line); if(ak) seenAddrs.set(ak, r.line); }
+    return Object.assign(r, { why, add: !why });
+  });
+  plRender();
+}
+
+function plRender(){
+  const wrap = document.getElementById('plPreview');
+  const btn = document.getElementById('plAddBtn');
+  if(!pasteRows.length){
+    wrap.innerHTML = `<div class="hint">Nothing to check. Paste one job per line.</div>`;
+    btn.style.display = 'none';
+    return;
+  }
+  const dupes = pasteRows.filter(r => r.why).length;
+  wrap.innerHTML = `<div class="hint" style="margin:0 0 8px;"><b>${pasteRows.length - dupes} new</b>${dupes ? ` &middot; <b>${dupes}</b> left out (duplicates or problems), shown below in grey` : ''}. Untick anything you don't want.</div>` +
+    pasteRows.map((r, i) => `
+      <label class="pl-row ${r.why ? 'dupe' : ''}">
+        <input type="checkbox" ${r.add ? 'checked' : ''} ${r.why ? 'disabled' : ''} onchange="pasteRows[${i}].add=this.checked;plCount()">
+        <div style="flex:1;min-width:0;">
+          <div class="pl-name">${escapeHtml(r.name || r.raw)}</div>
+          <div class="pl-addr">${escapeHtml(r.address || 'No address')}${r.status ? ` &middot; ${escapeHtml(r.status)}` : ''}</div>
+          ${r.why ? `<div class="pl-why">${escapeHtml(r.why)}</div>` : ''}
+        </div>
+      </label>`).join('');
+  btn.style.display = '';
+  plCount();
+}
+function plCount(){
+  const n = pasteRows.filter(r => r.add).length;
+  const btn = document.getElementById('plAddBtn');
+  btn.textContent = n ? `Add ${n} job${n !== 1 ? 's' : ''}` : 'Nothing ticked';
+  btn.disabled = !n;
+}
+
+async function plAdd(){
+  const take = pasteRows.filter(r => r.add);
+  if(!take.length) return;
+  /* Checked again at save time, in case the board changed meanwhile. */
+  const have = new Set(clients.map(c => plNameKey(c.name)));
+  const added = [];
+  take.forEach(r => {
+    if(have.has(plNameKey(r.name))) return;
+    have.add(plNameKey(r.name));
+    clients.push({ name: r.name, address: r.address });
+    const w = ensureRecord(r.name);
+    w.stage = 'new';
+    if(r.status && !/^no status$/i.test(r.status)) w.notes = `Status when imported: ${r.status}`;
+    added.push(r.name);
+  });
+  if(!added.length){ showToast('All of those are already on the board'); return; }
+  const btn = document.getElementById('plAddBtn');
+  btn.disabled = true; btn.textContent = 'Adding\u2026';
+  await apiPost('saveClientInfo', clients.map(x => ({ name: x.name, address: x.address || '' })));
+  const ok = await saveWhiteboard();
+  if(!ok){ plCount(); return; }
+  closeModal('modalPasteList');
+  renderAll();
+  showToast(`${added.length} job${added.length !== 1 ? 's' : ''} added`);
+}
+/* END PASTE A LIST (JS) */
 
 /* ---- the map ------------------------------------------------------
    The tracker's map engine, verbatim: MapLibre vector styles from the
@@ -5388,7 +5553,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07m';
+const WB_BUILD = '2026-11-07n';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
