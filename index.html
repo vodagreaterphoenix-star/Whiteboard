@@ -1538,6 +1538,8 @@ details.hsec{scroll-margin-top:8px;}
       </div>
       <select id="boardType" onchange="setBoardType(this.value)" aria-label="Type of loss"></select>
     </div>
+    <!-- SHARE LIST: names and addresses to copy or text. -->
+    <button class="map-btn" style="margin:-2px 0 10px;" onclick="openShareList()">Share list of jobs</button>
     <div id="boardList"></div>
   </div>
 
@@ -1860,6 +1862,24 @@ details.hsec{scroll-margin-top:8px;}
 </div></div>
 <!-- ===== END PASTE A LIST (HTML) ===== -->
 
+<!-- ===== BEGIN SHARE LIST (HTML) ===== -->
+<div class="overlay" id="modalShareList"><div class="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div><div class="sheet-title">Share list of jobs</div><div class="sheet-sub">Names and addresses, ready to paste into a text</div></div>
+    <button class="close-x" onclick="closeModal('modalShareList')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div class="field" style="margin-bottom:8px;"><label>Stages to include</label>
+    <div class="chip-row" id="slStages" style="flex-wrap:wrap;"></div></div>
+  <div class="hint" id="slCount" style="margin:0 0 8px;"></div>
+  <textarea id="slText" readonly rows="10" style="width:100%;box-sizing:border-box;font-size:13px;line-height:1.5;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);"></textarea>
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="copyShareList()">Copy</button>
+    <button class="btn btn-cyan" id="slShare" onclick="shareShareList()">Share</button>
+  </div>
+</div></div>
+<!-- ===== END SHARE LIST (HTML) ===== -->
+
 <div class="toast" id="toast"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
 
 <script>
@@ -2024,6 +2044,12 @@ async function loadData(quiet){
   if(!quiet) setSyncing(true);
   try{
     const data = await apiGetAll();
+    /* SAVE GUARD: an error answer from the backend is a failed load, not
+       an empty board. Without this, clients and whiteboard became [] and
+       the next save wrote that empty list over the Sheet. */
+    if(!data || data.error || !Array.isArray(data.clients) || (data.whiteboard !== undefined && !Array.isArray(data.whiteboard))){
+      throw new Error('Backend answered without data: ' + (data && data.error ? data.error : 'no clients list'));
+    }
     const sig = JSON.stringify(data);
     if(quiet && sig === lastLoadSig){ setSyncing(false); return; }
     lastLoadSig = sig;
@@ -2046,6 +2072,8 @@ async function loadData(quiet){
     if(data.whiteboard === undefined){
       showToast('Backend needs updating — deploy the new Code.gs to save job details');
     }
+    dataReady = true;                                              // SAVE GUARD
+    savedSizes = { clients: clients.length, whiteboard: whiteboard.length };
     setSyncing(false);
     if(quiet) renderWhenIdle(); else renderAll();   // SMOOTH SCROLL
   }catch(e){
@@ -2054,11 +2082,45 @@ async function loadData(quiet){
   }
 }
 
+/* =====================================================================
+ * SAVE GUARD, added 2026-11-11
+ * Both lists are saved whole, so a save made while they're empty or
+ * partial would replace everything in the Sheet. Two rules:
+ *   1. Nothing is saved until a real load has succeeded (dataReady).
+ *   2. No save may make either list shorter than it was. The Whiteboard
+ *      never deletes customers or jobs, so a shorter list is always a
+ *      mistake. (Deleting, if added later, must lower savedSizes first.)
+ * ===================================================================== */
+let dataReady = false;
+let savedSizes = { clients: 0, whiteboard: 0 };
+function saveAllowed(kind, list){
+  if(!dataReady){
+    showToast('Your jobs haven\u2019t finished loading, so nothing was saved. Try again in a moment.');
+    return false;
+  }
+  if(list.length < savedSizes[kind]){
+    console.error('SAVE GUARD: refused', kind, list.length, '<', savedSizes[kind]);
+    showToast('Stopped a save that would have removed jobs. Nothing was changed. Refresh the page and try again.');
+    return false;
+  }
+  return true;
+}
+async function saveClientsSafe(){
+  const rows = clients.map(x => ({ name: x.name, address: x.address || '' }));
+  if(!saveAllowed('clients', rows)) return false;
+  const r = await apiPost('saveClientInfo', rows);
+  if(r && r.error){ showToast('Not saved \u2014 ' + r.error); return false; }
+  savedSizes.clients = rows.length;
+  return true;
+}
+
 async function saveWhiteboard(){
+  if(!saveAllowed('whiteboard', whiteboard)) return false;   // SAVE GUARD
   setSyncing(true);
   try{
     const r = await apiPost('saveWhiteboard', whiteboard);
     if(r && r.error){ setSyncing(false, true); showToast('Not saved — ' + r.error); return false; }
+    savedSizes.whiteboard = whiteboard.length;   // SAVE GUARD
     setSyncing(false);
     return true;
   }catch(e){
@@ -2810,7 +2872,7 @@ async function saveJob(){
   const c = clients.find(x => x.name === currentJob);
   if(addr && (!c || c.address !== addr)){
     if(c) c.address = addr; else clients.push({ name: currentJob, address: addr });
-    await apiPost('saveClientInfo', clients.map(x=>({ name:x.name, address:x.address||'' })));
+    await saveClientsSafe();   // SAVE GUARD
   }
 
   const ok = await saveWhiteboard();
@@ -2883,7 +2945,7 @@ async function createJob(){
   /* SCREENSHOT IMPORT: whatever made it into the extra fields. */
   Object.entries(njExtras()).forEach(([k, v]) => { if(v) w[k] = v; });
 
-  await apiPost('saveClientInfo', clients.map(x=>({ name:x.name, address:x.address||'' })));
+  await saveClientsSafe();   // SAVE GUARD
   const ok = await saveWhiteboard();
   if(!ok) return;
   closeModal('modalNewJob');
@@ -2892,6 +2954,63 @@ async function createJob(){
   setTimeout(()=>openJob(name), SHEET_CLOSE_MS + 40);
 }
 
+
+/* =====================================================================
+ * BEGIN SHARE LIST (JS), added 2026-11-11
+ * Name and address of every job in the chosen stages, as plain text to
+ * copy or send (iMessage on an iPhone via the share sheet). Complete is
+ * never offered: these are the jobs on the board and the map. Starts
+ * with New and Mitigation ticked; the choice is remembered.
+ * Touch points: the Share list button on the Board, the modal markup.
+ * ===================================================================== */
+const SHARE_PREF = 'voda-wb-share-stages';
+let shareStages = ['new', 'mitigation'];
+try{ const v = JSON.parse(localStorage.getItem(SHARE_PREF) || 'null'); if(Array.isArray(v) && v.length) shareStages = v; }catch(e){}
+
+function openShareList(){ renderShareList(); openModal('modalShareList'); }
+function shareToggleStage(id){
+  shareStages = shareStages.includes(id) ? shareStages.filter(x => x !== id) : shareStages.concat(id);
+  try{ localStorage.setItem(SHARE_PREF, JSON.stringify(shareStages)); }catch(e){}
+  renderShareList();
+}
+function shareJobs(){
+  return allJobs().filter(j => j.stage !== 'complete' && shareStages.includes(j.stage))
+                  .sort((a, b) => a.name.localeCompare(b.name));
+}
+/* Plain text only, one job per line, so it pastes cleanly into a text. */
+function shareText(){
+  return shareJobs().map((j, i) => `${i + 1}. ${j.name} \u2013 ${j.address || 'No address saved'}`).join('\n');
+}
+function renderShareList(){
+  const jobs = shareJobs();
+  document.getElementById('slStages').innerHTML = STAGES.filter(s => s.id !== 'complete').map(s => {
+    const n = allJobs().filter(j => j.stage === s.id).length;
+    return `<button class="chip ${shareStages.includes(s.id) ? 'active' : ''}" onclick="shareToggleStage('${s.id}')">${s.label} ${n}</button>`;
+  }).join('');
+  document.getElementById('slText').value = shareText();
+  document.getElementById('slCount').textContent = jobs.length
+    ? `${jobs.length} job${jobs.length !== 1 ? 's' : ''}` : 'No jobs in the stages ticked';
+  document.getElementById('slShare').style.display = navigator.share ? '' : 'none';
+}
+async function copyShareList(){
+  const text = shareText();
+  if(!text){ showToast('Nothing to copy'); return; }
+  try{
+    await navigator.clipboard.writeText(text);
+    showToast('Copied. Paste it into Messages.');
+  }catch(e){
+    /* Older browsers: select the text so a long-press Copy works. */
+    const box = document.getElementById('slText');
+    box.focus(); box.select();
+    showToast('Tap and hold the text, then Copy');
+  }
+}
+async function shareShareList(){
+  const text = shareText();
+  if(!text){ showToast('Nothing to share'); return; }
+  try{ await navigator.share({ text }); }catch(e){ /* closed the share sheet */ }
+}
+/* END SHARE LIST (JS) */
 
 /* =====================================================================
  * BEGIN PASTE A LIST (JS), added 2026-11-07
@@ -3018,7 +3137,7 @@ async function plAdd(){
   if(!added.length){ showToast('All of those are already on the board'); return; }
   const btn = document.getElementById('plAddBtn');
   btn.disabled = true; btn.textContent = 'Adding\u2026';
-  await apiPost('saveClientInfo', clients.map(x => ({ name: x.name, address: x.address || '' })));
+  await saveClientsSafe();   // SAVE GUARD
   const ok = await saveWhiteboard();
   if(!ok){ plCount(); return; }
   closeModal('modalPasteList');
@@ -3967,7 +4086,7 @@ async function njMergeExisting(){
   }
   const c = clients.find(k => k.name === name);
   const addr = document.getElementById('njAddress').value.trim();
-  if(c && !c.address && addr){ c.address = addr; n++; await apiPost('saveClientInfo', clients.map(k => ({ name:k.name, address:k.address || '' }))); }
+  if(c && !c.address && addr){ c.address = addr; n++; await saveClientsSafe(); }   // SAVE GUARD
   w.updated = new Date().toISOString();
   if(!await saveWhiteboard()) return;
   closeModal('modalNewJob');
@@ -5804,7 +5923,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-11c';
+const WB_BUILD = '2026-11-11e';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
