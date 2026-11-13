@@ -922,6 +922,24 @@ html.ua-crios .sheet{max-height:88svh;}
 .pl-addr{font-size:12px;color:var(--muted);margin-top:1px;}
 .pl-why{font-size:11.5px;font-weight:700;color:var(--amber);margin-top:3px;}
 
+/* CLIENT AVAILABILITY */
+.unavail-tag{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#9A3412;background:#FFEDD5;border-radius:6px;padding:2px 7px;}
+[data-theme="dark"] .unavail-tag{color:#FDBA74;background:#431407;}
+.stop.unavail{opacity:.6;}
+.avail-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #FDBA74;border-radius:10px;margin-bottom:8px;background:#FFF7ED;}
+[data-theme="dark"] .avail-row{background:#2A1606;border-color:#9A3412;}
+.avail-when{font-weight:800;font-size:13px;color:#9A3412;}
+[data-theme="dark"] .avail-when{color:#FDBA74;}
+
+/* JOB VISITS */
+.visit-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--card);}
+.visit-when{font-weight:700;font-size:13px;}
+.visit-who{font-size:12px;color:var(--muted);}
+.visit-del{border:none;background:var(--gray-bg);color:var(--muted);width:28px;height:28px;border-radius:8px;font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;}
+.visit-form{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--card);}
+.visited-tag{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#15803D;background:#DCFCE7;border-radius:6px;padding:2px 7px;}
+[data-theme="dark"] .visited-tag{color:#86EFAC;background:#14532D;}
+
 /* NO AUTO-UNDERLINES, in case a browser detects anyway: Safari marks its
    links with x-apple-data-detectors, Chrome on iPhone wraps its finds in
    chrome_annotation. Both keep the text, just lose the underline. */
@@ -1717,6 +1735,9 @@ details.hsec{scroll-margin-top:8px;}
   <div class="section-title">Site access</div>
   <div id="jdAccessWrap"></div>
 
+  <div id="jdAvail"></div>    <!-- CLIENT AVAILABILITY -->
+  <div id="jdVisits"></div>   <!-- JOB VISITS -->
+
   <div class="section-title">Notes</div>
   <div class="field"><textarea id="jdNotes" rows="3" placeholder="Anything the next person needs to know"></textarea></div>
 
@@ -2172,6 +2193,11 @@ function renderBoard(){
     /* BOARD SORT: when sorted by newest, say when each job was added. */
     if(boardSort === 'newest' && j.created && !isNaN(Date.parse(j.created)))
       bits.push('Added ' + new Date(j.created).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
+    /* CLIENT AVAILABILITY: unavailable today, at a glance. */
+    if(unavailOn(j.name, localDay(0))) bits.push('Not available today');
+    /* JOB VISITS: the most recent visit, at a glance. */
+    { const last = jobVisits(j.name)[0];
+      if(last) bits.push('Last visit ' + new Date(last.at).toLocaleDateString('en-US', { month:'short', day:'numeric' })); }
     return `<div class="eq-card" onclick="openJob(decodeURIComponent('${encodeURIComponent(j.name)}'))">
       <div class="ribbon" style="background:${isJobHot(j) ? '#E11D48' : st.color}"></div>
       <div class="body">
@@ -2613,6 +2639,10 @@ function openJob(name){
 
   document.getElementById('jdName').textContent = name;
   document.getElementById('jdAddress').textContent = j.address || 'No address yet';
+  visitFormOpen = false;   // JOB VISITS
+  renderJobVisits(name);
+  availFormOpen = false;   // CLIENT AVAILABILITY
+  renderJobAvail(name);
 
   const pin = j.address ? geocache[mapNorm(j.address)] : null;
   const pinLine = document.getElementById('jdPinLine');
@@ -4860,6 +4890,7 @@ function updatePinLabels(){
 /* END MAP NAME LABELS (JS) */
 
 function routePopupLine(name){
+  if(unavailOn(name, localDay(0))) return `<br><b>Client not available today</b>`;   // CLIENT AVAILABILITY
   const r = runOfStop(name, localDay(0));
   if(r) return `<br>On ${escapeHtml(r.tech)}'s route today`;
   const why = suggestedReasons(jobByName(name));
@@ -5214,7 +5245,8 @@ function routeDisplayOrder(stops){
   const items = stops.map((s, i) => ({ s, i, d: null }));
   if(routeSort !== 'near' || !myPosition) return items;
   items.forEach(x => { const p = jobPoint(x.s.name); x.d = p ? mapDistanceMi(myPosition, p) : null; });
-  return items.sort((a, b) => (Number(!!a.s.done) - Number(!!b.s.done))
+  const off = x => (!x.s.done && unavailOn(x.s.name, routeDate)) ? 1 : 0;   // CLIENT AVAILABILITY
+  return items.sort((a, b) => (Number(!!a.s.done) - Number(!!b.s.done)) || (off(a) - off(b))
                            || ((a.d === null ? 1e9 : a.d) - (b.d === null ? 1e9 : b.d)));
 }
 /* END LIVE LOCATION (JS) */
@@ -5276,13 +5308,16 @@ function renderRoute(){
         <a class="w" target="_blank" rel="noopener" href="https://www.waze.com/ul?q=${dest}&navigate=yes">Waze</a>
         ${j.phone ? `<a href="tel:${escapeHtml(String(j.phone).replace(/[^\d+]/g, ''))}">Call</a>` : ''}
       </div>` : '';
-    return `<div class="stop mine ${s.done ? 'done' : ''} ${here ? 'here' : ''}">
+    const away = unavailOn(s.name, routeDate);   // CLIENT AVAILABILITY
+    return `<div class="stop mine ${s.done ? 'done' : ''} ${here ? 'here' : ''} ${away && !s.done ? 'unavail' : ''}">
       <div class="stop-head">
         <div class="stop-n">${s.done ? '&#10003;' : i + 1}</div>
         <div style="flex:1;min-width:0;">
           <div class="stop-name">${escapeHtml(s.name)}</div>
           <div class="stop-addr">${escapeHtml(addr || 'No address on this job')}</div>
           ${whyChips(s.why)}
+          ${s.done && s.doneAt ? `<div class="visited-tag">&#10003; Visited ${escapeHtml(visitTime(s.doneAt))}</div>` : ''}
+          ${away ? `<div class="unavail-tag">Client not available ${escapeHtml(dayWord(routeDate))}${away.note ? ': ' + escapeHtml(away.note) : ''}</div>` : ''}
           ${here ? `<div class="here-tag">You're here</div>`
                  : (near && d !== null ? `<div class="stop-note quiet">${d.toFixed(1)} mi away</div>` : '')}
         </div>
@@ -5296,6 +5331,7 @@ function renderRoute(){
         <button class="map-btn ${s.done ? '' : 'go'}" onclick="routeDone(${i})">${s.done ? 'Not done' : 'Done'}</button>
         <button class="map-btn" onclick="openJob(${qa(s.name)})">Open job</button>
         <button class="map-btn" onclick="routeRemove(${i})">Take off my route</button>
+        <button class="map-btn" onclick="routeToggleUnavail(${qa(s.name)})">${away ? 'Client available after all' : 'Client not available'}</button>
       </div>
     </div>`;
   }).join('');
@@ -5334,6 +5370,7 @@ function renderGrabs(stops){
           <div class="stop-addr">${escapeHtml(j.address)}</div>
           ${whyChips(suggestedReasons(j))}
           <div class="stop-note quiet">${d.toFixed(1)} mi from ${fromWhat} &middot; ${run ? `On ${escapeHtml(run.tech)}'s route` : 'Not on anyone\u2019s route'}</div>
+          ${unavailOn(j.name, routeDate) ? `<div class="unavail-tag">Client not available ${escapeHtml(dayWord(routeDate))}</div>` : ''}
         </div>
         ${run ? '' : `<button class="map-btn go" onclick="routeGrab(${qa(j.name)})">Add</button>`}
       </div>
@@ -5388,9 +5425,223 @@ function routeDone(i){
     const s = run.stops[i];
     if(!s) return false;
     s.done = !s.done;
-    s.doneAt = s.done ? new Date().toISOString() : '';
+    if(s.done){
+      s.doneAt = new Date().toISOString();
+      recordVisit(s.name, run.tech, s.why, s.doneAt);   // JOB VISITS: kept on the job for good
+    } else {
+      removeVisit(s.name, s.doneAt);                     // undoing Done takes that visit back off
+      s.doneAt = '';
+    }
   });
 }
+
+/* =====================================================================
+ * BEGIN CLIENT AVAILABILITY (JS), added 2026-11-11
+ * Marks that a client won't be available on a given day: from the job
+ * (any date, with an optional note) or from a Route stop (that route's
+ * day, one tap). Stored on the job as w.unavail = [{date, note, by, at}].
+ * Shown wherever the job appears that day: Route stop (greyed, tagged,
+ * moved below the stops you can do), Other jobs nearby, the Board card,
+ * the map popup and the job itself. Past dates drop off the job's list.
+ * Touch points: openJob, the route card and its sort, renderGrabs, the
+ * Board card, routePopupLine, the jdAvail markup, the CSS block.
+ * ===================================================================== */
+let availFormOpen = false;
+
+function unavailOn(name, date){
+  const w = whiteboard.find(x => x.name === name);
+  return ((w && w.unavail) || []).find(u => u.date === date) || null;
+}
+function dayWord(date){
+  if(date === localDay(0)) return 'today';
+  if(date === localDay(1)) return 'tomorrow';
+  const d = new Date(date + 'T00:00:00');
+  return isNaN(d) ? date : d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+function setUnavailable(name, date, note){
+  const w = ensureRecord(name);
+  w.unavail = (w.unavail || []).filter(u => u.date !== date && u.date >= localDay(0));
+  w.unavail.push({ date, note: note || '', by: (routeTech && routeTech !== '*') ? routeTech : '', at: new Date().toISOString() });
+  w.unavail.sort((a, b) => a.date.localeCompare(b.date));
+  availChanged(name);
+  saveWhiteboard();
+}
+function clearUnavailable(name, date){
+  const w = ensureRecord(name);
+  w.unavail = (w.unavail || []).filter(u => u.date !== date);
+  availChanged(name);
+  saveWhiteboard();
+}
+function availChanged(name){
+  renderBoard();
+  if(document.getElementById('view-route').classList.contains('active')) renderRoute();
+  if(currentJob === name && document.getElementById('modalJob').classList.contains('active')) renderJobAvail(name);
+}
+/* One tap on a Route stop: not available on that route's day. */
+function routeToggleUnavail(name){
+  if(unavailOn(name, routeDate)){ clearUnavailable(name, routeDate); return; }
+  setUnavailable(name, routeDate, '');
+  showToast(`${name} marked not available ${dayWord(routeDate)}`);
+}
+function saveAvailForm(){
+  const date = document.getElementById('availDate').value;
+  if(!date){ showToast('Pick a date'); return; }
+  if(date < localDay(0)){ showToast('Pick today or a later date'); return; }
+  availFormOpen = false;
+  setUnavailable(currentJob, date, document.getElementById('availNote').value.trim());
+  showToast(`${currentJob} marked not available ${dayWord(date)}`);
+}
+function renderJobAvail(name){
+  const box = document.getElementById('jdAvail');
+  if(!box) return;
+  const w = whiteboard.find(x => x.name === name);
+  const list = ((w && w.unavail) || []).filter(u => u.date >= localDay(0));
+  const rows = list.map(u => `
+    <div class="avail-row">
+      <div style="flex:1;min-width:0;">
+        <div class="avail-when">Client not available ${escapeHtml(dayWord(u.date))}</div>
+        ${u.note ? `<div class="visit-who">${escapeHtml(u.note)}</div>` : ''}
+      </div>
+      <button class="visit-del" onclick="clearUnavailable(currentJob, ${qa(u.date)})" aria-label="Remove">&times;</button>
+    </div>`).join('');
+  const form = availFormOpen ? `
+    <div class="visit-form">
+      <div class="field" style="margin-bottom:8px;"><label>Not available on</label>
+        <input type="date" id="availDate" value="${localDay(0)}" min="${localDay(0)}"></div>
+      <div class="field" style="margin-bottom:10px;"><label>Note (optional)</label>
+        <input id="availNote" placeholder="e.g. Out of town until Monday"></div>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn btn-ghost" onclick="availFormOpen=false;renderJobAvail(currentJob)">Cancel</button>
+        <button class="btn btn-primary" onclick="saveAvailForm()">Save</button>
+      </div>
+    </div>`
+    : `<button class="map-btn" style="margin-bottom:8px;" onclick="availFormOpen=true;renderJobAvail(currentJob)">Client not available&hellip;</button>`;
+  box.innerHTML = rows + form;
+}
+/* END CLIENT AVAILABILITY (JS) */
+
+/* =====================================================================
+ * BEGIN JOB VISITS (JS), added 2026-11-11
+ * Tapping Done on a Route stop records a visit on the JOB itself: when,
+ * who, and why (Monitor, Pickup...). Routes are cleared after 7 days;
+ * visits stay with the job. "Not done" removes that same visit (matched
+ * by its exact time), so a mis-tap leaves nothing behind.
+ * Shown: in the job (Visits list), on the Route card (Visited 10:42 AM)
+ * and on the Board card (Last visit Nov 11).
+ * Touch points: routeDone, openJob, the route card, the Board card, the
+ * jdVisits markup.
+ * ===================================================================== */
+function recordVisit(name, tech, why, at){
+  const w = ensureRecord(name);
+  w.visits = (w.visits || []).filter(v => v.at !== at);
+  w.visits.push({ at, tech: tech || '', why: (why || []).slice() });
+  visitsChanged(name);
+  saveWhiteboard();
+}
+/* Board card ("Last visit") and an open job's Visits list follow at once. */
+function visitsChanged(name){
+  renderBoard();
+  if(currentJob === name && document.getElementById('modalJob').classList.contains('active')) renderJobVisits(name);
+}
+function removeVisit(name, at){
+  if(!at) return;
+  const w = ensureRecord(name);
+  const before = (w.visits || []).length;
+  w.visits = (w.visits || []).filter(v => v.at !== at);
+  if(w.visits.length !== before){ visitsChanged(name); saveWhiteboard(); }
+}
+function jobVisits(name){
+  const w = whiteboard.find(x => x.name === name);
+  return ((w && w.visits) || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at)));
+}
+function visitTime(at){
+  const d = new Date(at);
+  return isNaN(d) ? '' : d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+}
+function visitDay(at){
+  const d = new Date(at);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+}
+const VISITS_SHOWN = 10;
+/* LOG A VISIT: the form in the job's Visits section. */
+let visitFormOpen = false, visitWho = '', visitWhy = [];
+
+function openVisitForm(){
+  const j = jobByName(currentJob);
+  const run = runOfStop(currentJob, localDay(0));
+  const stop = run && run.stops.find(x => x.name === currentJob);
+  /* Who: the name this phone uses on the Route tab, else the job's tech. */
+  visitWho = (routeTech && routeTech !== '*') ? routeTech : ((j && j.tech) || personnel[0] || '');
+  /* Why: what today's route says, else what the job suggests. */
+  visitWhy = (stop && stop.why && stop.why.length) ? stop.why.slice() : suggestedReasons(j);
+  visitFormOpen = true;
+  renderJobVisits(currentJob);
+}
+function visitToggleWhy(id){
+  visitWhy = visitWhy.includes(id) ? visitWhy.filter(x => x !== id) : visitWhy.concat(id);
+  renderJobVisits(currentJob);
+}
+async function saveVisitForm(){
+  const name = currentJob;
+  const who = (document.getElementById('visitWho') || {}).value || visitWho;
+  if(!who){ showToast('Pick who made the visit'); return; }
+  const at = new Date().toISOString();
+  visitFormOpen = false;
+  recordVisit(name, who, visitWhy, at);
+  /* On that person's route today? Check the stop off too, same time. */
+  const cur = runFor(who, localDay(0));
+  const i = cur ? cur.stops.findIndex(x => x.name === name && !x.done) : -1;
+  if(i >= 0){
+    const run = cloneRun(cur);
+    run.stops[i].done = true;
+    run.stops[i].doneAt = at;
+    await saveRun(run, cur.updated, false);
+  }
+  showToast(`Visit logged for ${name}`);
+}
+async function deleteVisit(at){
+  const name = currentJob;
+  if(!confirm('Remove this visit?')) return;
+  removeVisit(name, at);
+  /* If a route stop was checked off by this visit, un-check it. */
+  const run = runs.find(r => (r.stops || []).some(x => x.name === name && x.doneAt === at));
+  if(run){
+    const copy = cloneRun(run);
+    const st = copy.stops.find(x => x.name === name && x.doneAt === at);
+    st.done = false; st.doneAt = '';
+    await saveRun(copy, run.updated, false);
+  }
+}
+
+function renderJobVisits(name){
+  const box = document.getElementById('jdVisits');
+  if(!box) return;
+  const list = jobVisits(name);
+  const label = id => (VISIT_REASONS.find(r => r.id === id) || {}).label || id;
+  const form = visitFormOpen ? `
+    <div class="visit-form">
+      <div class="field" style="margin-bottom:8px;"><label>Who visited</label>
+        <select id="visitWho" onchange="visitWho=this.value">${personnel.map(p => `<option ${p === visitWho ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></div>
+      <div class="why-row" style="margin-bottom:10px;">${VISIT_REASONS.map(r =>
+        `<button class="why ${r.id} ${visitWhy.includes(r.id) ? 'on' : ''}" onclick="visitToggleWhy('${r.id}')">${r.label}</button>`).join('')}</div>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn btn-ghost" onclick="visitFormOpen=false;renderJobVisits(currentJob)">Cancel</button>
+        <button class="btn btn-primary" onclick="saveVisitForm()">Save visit</button>
+      </div>
+    </div>`
+    : `<button class="map-btn go" style="margin-bottom:8px;" onclick="openVisitForm()">+ Log a visit</button>`;
+  box.innerHTML = `<div class="section-title">Visits${list.length ? ` (${list.length})` : ''}</div>` + form + (list.length
+    ? list.slice(0, VISITS_SHOWN).map(v => `
+        <div class="visit-row">
+          <div style="flex:1;min-width:0;">
+            <div class="visit-when">${escapeHtml(visitDay(v.at))} &middot; ${escapeHtml(visitTime(v.at))}</div>
+            <div class="visit-who">${escapeHtml(v.tech || 'Someone')}${(v.why || []).length ? ' &middot; ' + v.why.map(x => escapeHtml(label(x))).join(', ') : ''}</div>
+          </div>
+          <button class="visit-del" onclick="deleteVisit(${qa(v.at)})" aria-label="Remove this visit">&times;</button>
+        </div>`).join('') + (list.length > VISITS_SHOWN ? `<div class="hint">and ${list.length - VISITS_SHOWN} earlier</div>` : '')
+    : `<div class="hint" style="margin-top:0;">No visits yet. Log one here, or tap <b>Done</b> on a Route stop.</div>`);
+}
+/* END JOB VISITS (JS) */
 function routeRemove(i){
   const cur = runFor(routeTech, routeDate);
   const s = cur && cur.stops[i];
@@ -5553,7 +5804,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-07n';
+const WB_BUILD = '2026-11-11c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
