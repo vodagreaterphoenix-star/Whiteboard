@@ -854,6 +854,11 @@ html.ua-crios .sheet{max-height:88svh;}
    it also wins over the equipment and unassigned rules. */
 .map-pin.is-hot, .map-pin.is-hot.has-overdue{background:#E11D48;color:#fff;border-color:#fff;}
 .map-pin.is-hot{box-shadow:0 0 0 2px rgba(225,29,72,.4),0 0 14px rgba(225,29,72,.85);}
+/* CLIENT AVAILABILITY, today only: visited light blue, client's window
+   red (priority), client away yellow. */
+.map-pin.map-pin.is-visited{background:#BEE3FF;color:#0A1F3D;border-color:#BEE3FF;box-shadow:0 0 0 2px rgba(190,227,255,.5),0 0 10px rgba(190,227,255,.8);}
+.map-pin.map-pin.is-priority{background:#DC2626;color:#fff;border-color:#DC2626;box-shadow:0 0 0 2px rgba(220,38,38,.4),0 0 14px rgba(220,38,38,.85);}
+.map-pin.map-pin.is-away{background:#FACC15;color:#3D2A08;border-color:#FACC15;box-shadow:0 0 0 2px rgba(250,204,21,.4),0 0 12px rgba(250,204,21,.75);}
 /* Unassigned: keep the fill, ring it red. */
 .map-pin.has-equip.has-overdue{background:#FFB300;color:#101010;}
 /* No technician assigned: a plain Voda-navy (--navy) outer ring, nothing
@@ -923,6 +928,11 @@ html.ua-crios .sheet{max-height:88svh;}
 .pl-why{font-size:11.5px;font-weight:700;color:var(--amber);margin-top:3px;}
 
 /* CLIENT AVAILABILITY */
+.window-tag{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#fff;background:#DC2626;border-radius:6px;padding:2px 7px;}
+.avail-row.win{border-color:#FCA5A5;background:#FEF2F2;}
+.avail-row.win .avail-when{color:#B91C1C;}
+[data-theme="dark"] .avail-row.win{background:#3B0D0D;border-color:#991B1B;}
+[data-theme="dark"] .avail-row.win .avail-when{color:#FCA5A5;}
 .unavail-tag{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#9A3412;background:#FFEDD5;border-radius:6px;padding:2px 7px;}
 [data-theme="dark"] .unavail-tag{color:#FDBA74;background:#431407;}
 .stop.unavail{opacity:.6;}
@@ -1579,6 +1589,10 @@ details.hsec{scroll-margin-top:8px;}
     <details class="pin-key">
       <summary>Key</summary>
       <div class="pin-legend">
+        <span style="color:var(--muted);">Today:</span>
+        <span><i class="map-pin is-visited"></i>Visited today</span>
+        <span><i class="map-pin is-priority"></i>Priority: client's available time is today</span>
+        <span><i class="map-pin is-away"></i>Client not available</span>
         <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
         <span style="color:var(--muted);">Number inside = days the equipment has been on site. Its ring:</span>
         <span><i class="map-pin st-inspection day-1"></i>Day 1</span>
@@ -2316,7 +2330,11 @@ function renderBoard(){
     if(boardSort === 'newest' && j.created && !isNaN(Date.parse(j.created)))
       bits.push('Added ' + new Date(j.created).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
     /* CLIENT AVAILABILITY: unavailable today, at a glance. */
-    if(unavailOn(j.name, localDay(0))) bits.push('Not available today');
+    { const t = localDay(0), win = availWindowOn(j.name, t), u = unavailOn(j.name, t);
+      if(win) bits.push('Available ' + windowWords(win) + ' today');
+      else if(u) bits.push('Not available ' + rangeWords(u));
+      else { const nx = ((jobRecord(j.name) || {}).avail || []).find(a => a.date > t);
+             if(nx) bits.push('Next available ' + dayWord(nx.date) + ', ' + windowWords(nx)); } }
     /* JOB VISITS: the most recent visit, at a glance. */
     { const last = jobVisits(j.name)[0];
       if(last) bits.push('Last visit ' + new Date(last.at).toLocaleDateString('en-US', { month:'short', day:'numeric' })); }
@@ -4967,7 +4985,9 @@ function pinIconFor(g){
      DRYING DAYS: with equipment on site, the number is the drying day
      and the inner ring counts up green, yellow, orange, red (dayRingClass).
      Not while selected, where the cyan "picked" look must show. */
+  const today = (!g.isShop && g.job) ? availPinClass(g.label) : '';   // CLIENT AVAILABILITY: visited / priority / away
   const colour = (g.isShop || isSel) ? ''
+               : today ? today
                : (g.job && isJobHot(g.job)) ? ' is-hot'     // HOT JOBS: red beats every other colour
                : ' st-' + (g.stage || 'new');
   const day = (!g.isShop && g.job) ? dryingDay(g.job) : null;
@@ -5012,7 +5032,8 @@ function pinHook(marker, g){
   mapPinRefs[g.label] = { marker, g };
   /* MAP NAME LABELS: every pin carries its customer's name, kept hidden
      until updatePinLabels decides there is room to show it. */
-  marker.bindTooltip(escapeHtml(g.label), { permanent:true, direction:'top', offset:[0,-15], className:'pin-label', opacity:1 });
+  const win = !visitedOn(g.label, localDay(0)) && availWindowOn(g.label, localDay(0));   // CLIENT AVAILABILITY
+  marker.bindTooltip(escapeHtml(g.label) + (win ? ' &middot; ' + escapeHtml(windowWords(win)) : ''), { permanent:true, direction:'top', offset:[0,-15], className:'pin-label', opacity:1 });
   updatePinLabels();
   if(!selMode) return;
   marker.unbindPopup();
@@ -5069,7 +5090,10 @@ function updatePinLabels(){
 /* END MAP NAME LABELS (JS) */
 
 function routePopupLine(name){
-  if(unavailOn(name, localDay(0))) return `<br><b>Client not available today</b>`;   // CLIENT AVAILABILITY
+  { const t = localDay(0), win = availWindowOn(name, t), u = unavailOn(name, t);   // CLIENT AVAILABILITY
+    if(visitedOn(name, t)) return `<br><b>Visited today</b>`;
+    if(win) return `<br><b>Priority: client available ${escapeHtml(windowWords(win))} today</b>`;
+    if(u) return `<br><b>Client not available ${escapeHtml(rangeWords(u))}</b>`; }
   const r = runOfStop(name, localDay(0));
   if(r) return `<br>On ${escapeHtml(r.tech)}'s route today`;
   const why = suggestedReasons(jobByName(name));
@@ -5424,7 +5448,7 @@ function routeDisplayOrder(stops){
   const items = stops.map((s, i) => ({ s, i, d: null }));
   if(routeSort !== 'near' || !myPosition) return items;
   items.forEach(x => { const p = jobPoint(x.s.name); x.d = p ? mapDistanceMi(myPosition, p) : null; });
-  const off = x => (!x.s.done && unavailOn(x.s.name, routeDate)) ? 1 : 0;   // CLIENT AVAILABILITY
+  const off = x => x.s.done ? 0 : availWindowOn(x.s.name, routeDate) ? -1 : unavailOn(x.s.name, routeDate) ? 1 : 0;   // CLIENT AVAILABILITY
   return items.sort((a, b) => (Number(!!a.s.done) - Number(!!b.s.done)) || (off(a) - off(b))
                            || ((a.d === null ? 1e9 : a.d) - (b.d === null ? 1e9 : b.d)));
 }
@@ -5496,7 +5520,8 @@ function renderRoute(){
           <div class="stop-addr">${escapeHtml(addr || 'No address on this job')}</div>
           ${whyChips(s.why)}
           ${s.done && s.doneAt ? `<div class="visited-tag">&#10003; Visited ${escapeHtml(visitTime(s.doneAt))}</div>` : ''}
-          ${away ? `<div class="unavail-tag">Client not available ${escapeHtml(dayWord(routeDate))}${away.note ? ': ' + escapeHtml(away.note) : ''}</div>` : ''}
+          ${away ? `<div class="unavail-tag">Client not available ${escapeHtml(rangeWords(away))}${away.note ? ': ' + escapeHtml(away.note) : ''}</div>` : ''}
+          ${availWindowOn(s.name, routeDate) && !s.done ? `<div class="window-tag">Priority: available ${escapeHtml(windowWords(availWindowOn(s.name, routeDate)))}${availWindowOn(s.name, routeDate).note ? ' \u2013 ' + escapeHtml(availWindowOn(s.name, routeDate).note) : ''}</div>` : ''}
           ${here ? `<div class="here-tag">You're here</div>`
                  : (near && d !== null ? `<div class="stop-note quiet">${d.toFixed(1)} mi away</div>` : '')}
         </div>
@@ -5615,21 +5640,45 @@ function routeDone(i){
 }
 
 /* =====================================================================
- * BEGIN CLIENT AVAILABILITY (JS), added 2026-11-11
- * Marks that a client won't be available on a given day: from the job
- * (any date, with an optional note) or from a Route stop (that route's
- * day, one tap). Stored on the job as w.unavail = [{date, note, by, at}].
- * Shown wherever the job appears that day: Route stop (greyed, tagged,
- * moved below the stops you can do), Other jobs nearby, the Board card,
- * the map popup and the job itself. Past dates drop off the job's list.
- * Touch points: openJob, the route card and its sort, renderGrabs, the
- * Board card, routePopupLine, the jdAvail markup, the CSS block.
+ * BEGIN CLIENT AVAILABILITY (JS), added 2026-11-11, extended 2026-11-13
+ * Two things per job, both entered from the job or a Route stop:
+ *   w.unavail = [{from, to, note, by, at}]   client away for a date range
+ *                                           (older entries had one `date`)
+ *   w.avail   = [{date, start, end, note}]   a time window the client IS
+ *                                           available ("2 to 4 PM")
+ * Map pin, for TODAY, first match wins:
+ *   visited today (a visit logged)  light blue   (done, nothing to chase)
+ *   availability window today       red          (priority: be there then)
+ *   client not available today      yellow
+ *   otherwise hot or the job's stage colour, as before.
+ * Past dates drop off. Touch points: openJob, the route card and sort,
+ * renderGrabs, the Board card, routePopupLine, pinIconFor, pinHook, the
+ * jdAvail markup, the Key, the CSS blocks.
  * ===================================================================== */
-let availFormOpen = false;
+let availFormOpen = false;   // false | 'away' | 'window'
 
+const uFrom = u => u.from || u.date || '';
+const uTo   = u => u.to || u.from || u.date || '';
 function unavailOn(name, date){
   const w = whiteboard.find(x => x.name === name);
-  return ((w && w.unavail) || []).find(u => u.date === date) || null;
+  return ((w && w.unavail) || []).find(u => uFrom(u) <= date && date <= uTo(u)) || null;
+}
+function availWindowOn(name, date){
+  const w = whiteboard.find(x => x.name === name);
+  return ((w && w.avail) || []).find(a => a.date === date) || null;
+}
+/* A visit logged on that calendar day, in this phone's time zone. */
+function visitedOn(name, date){
+  return jobVisits(name).some(v => { const d = new Date(v.at); return !isNaN(d) && dayOf(d) === date; });
+}
+function dayOf(d){ return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+/* The pin fill for today's situation, or '' to fall back to stage/hot. */
+function availPinClass(name){
+  const t = localDay(0);
+  if(visitedOn(name, t)) return ' is-visited';
+  if(availWindowOn(name, t)) return ' is-priority';
+  if(unavailOn(name, t)) return ' is-away';
+  return '';
 }
 function dayWord(date){
   if(date === localDay(0)) return 'today';
@@ -5637,17 +5686,59 @@ function dayWord(date){
   const d = new Date(date + 'T00:00:00');
   return isNaN(d) ? date : d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
 }
-function setUnavailable(name, date, note){
+function rangeWords(u){
+  return uFrom(u) === uTo(u) ? dayWord(uFrom(u)) : `${dayWord(uFrom(u))} – ${dayWord(uTo(u))}`;
+}
+/* "14:00" -> "2 PM", "11:30" -> "11:30 AM"; a window shares its AM/PM. */
+function clockWord(t, withAmPm){
+  const m = /^(\d{1,2}):(\d{2})/.exec(t || '');
+  if(!m) return '';
+  let h = +m[1]; const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return h + (m[2] !== '00' ? ':' + m[2] : '') + (withAmPm ? ' ' + ap : '');
+}
+function windowWords(a){
+  if(!a.start && !a.end) return 'any time';
+  if(!a.end) return 'from ' + clockWord(a.start, true);
+  if(!a.start) return 'until ' + clockWord(a.end, true);
+  const same = (+a.start.slice(0, 2) >= 12) === (+a.end.slice(0, 2) >= 12);
+  return `${clockWord(a.start, !same)}–${clockWord(a.end, true)}`;
+}
+function addDays(date, n){ const d = new Date(date + 'T00:00:00'); d.setDate(d.getDate() + n); return dayOf(d); }
+
+function setUnavailable(name, from, to, note){
   const w = ensureRecord(name);
-  w.unavail = (w.unavail || []).filter(u => u.date !== date && u.date >= localDay(0));
-  w.unavail.push({ date, note: note || '', by: (routeTech && routeTech !== '*') ? routeTech : '', at: new Date().toISOString() });
-  w.unavail.sort((a, b) => a.date.localeCompare(b.date));
+  to = to && to >= from ? to : from;
+  w.unavail = (w.unavail || []).filter(u => uTo(u) >= localDay(0) && !(uFrom(u) <= to && from <= uTo(u)));
+  w.unavail.push({ from, to, note: note || '', by: (routeTech && routeTech !== '*') ? routeTech : '', at: new Date().toISOString() });
+  w.unavail.sort((a, b) => uFrom(a).localeCompare(uFrom(b)));
   availChanged(name);
   saveWhiteboard();
 }
-function clearUnavailable(name, date){
+function clearUnavailable(name, from){
   const w = ensureRecord(name);
-  w.unavail = (w.unavail || []).filter(u => u.date !== date);
+  w.unavail = (w.unavail || []).filter(u => uFrom(u) !== from);
+  availChanged(name);
+  saveWhiteboard();
+}
+function setAvailWindow(name, date, start, end, note){
+  const w = ensureRecord(name);
+  w.avail = (w.avail || []).filter(a => a.date !== date && a.date >= localDay(0));
+  w.avail.push({ date, start: start || '', end: end || '', note: note || '' });
+  w.avail.sort((a, b) => a.date.localeCompare(b.date));
+  /* Available that day, so it can't also be marked away that day. */
+  w.unavail = (w.unavail || []).flatMap(u => {
+    if(!(uFrom(u) <= date && date <= uTo(u))) return [u];
+    const out = [];
+    if(uFrom(u) < date) out.push(Object.assign({}, u, { from: uFrom(u), to: addDays(date, -1), date: undefined }));
+    if(date < uTo(u)) out.push(Object.assign({}, u, { from: addDays(date, 1), to: uTo(u), date: undefined }));
+    return out;
+  });
+  availChanged(name);
+  saveWhiteboard();
+}
+function clearAvailWindow(name, date){
+  const w = ensureRecord(name);
+  w.avail = (w.avail || []).filter(a => a.date !== date);
   availChanged(name);
   saveWhiteboard();
 }
@@ -5655,47 +5746,94 @@ function availChanged(name){
   renderBoard();
   if(document.getElementById('view-route').classList.contains('active')) renderRoute();
   if(currentJob === name && document.getElementById('modalJob').classList.contains('active')) renderJobAvail(name);
+  if(typeof repaintAllPins === 'function' && mapObj) renderMap();
 }
 /* One tap on a Route stop: not available on that route's day. */
 function routeToggleUnavail(name){
-  if(unavailOn(name, routeDate)){ clearUnavailable(name, routeDate); return; }
-  setUnavailable(name, routeDate, '');
+  const u = unavailOn(name, routeDate);
+  if(u){ clearUnavailable(name, uFrom(u)); return; }
+  setUnavailable(name, routeDate, routeDate, '');
   showToast(`${name} marked not available ${dayWord(routeDate)}`);
 }
 function saveAvailForm(){
-  const date = document.getElementById('availDate').value;
-  if(!date){ showToast('Pick a date'); return; }
-  if(date < localDay(0)){ showToast('Pick today or a later date'); return; }
+  /* Read every field first: each save redraws this form. */
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const f = { mode: availFormOpen, from: v('availFrom'), to: v('availTo') || v('availFrom'), note: v('availNote'),
+              nd: v('availNextDate'), start: v('availStart'), end: v('availEnd') };
+  const today = localDay(0);
+  if(f.mode === 'away' && !f.from){ showToast('Pick the first day they’re away'); return; }
+  if(f.mode === 'away' && f.to < today){ showToast('Those dates are already past'); return; }
+  if(f.mode === 'window' && !f.nd){ showToast('Pick the day they’re available'); return; }
+  if(f.nd && f.nd < today){ showToast('Pick today or a later date for their availability'); return; }
+  if(f.nd && f.mode === 'away' && f.nd >= f.from && f.nd <= f.to){ showToast('Their next available day is inside the days they’re away'); return; }
+  if(f.start && f.end && f.end <= f.start){ showToast('The end time is before the start time'); return; }
   availFormOpen = false;
-  setUnavailable(currentJob, date, document.getElementById('availNote').value.trim());
-  showToast(`${currentJob} marked not available ${dayWord(date)}`);
+  if(f.mode === 'away') setUnavailable(currentJob, f.from, f.to, f.note);
+  if(f.nd) setAvailWindow(currentJob, f.nd, f.start, f.end, f.mode === 'window' ? f.note : '');
+  showToast('Saved');
+}
+/* Moving the last away day moves the suggested next-available day. */
+function availSyncNext(){
+  const to = document.getElementById('availTo').value || document.getElementById('availFrom').value;
+  const nd = document.getElementById('availNextDate');
+  if(to && nd && !nd.dataset.touched) nd.value = addDays(to, 1);
 }
 function renderJobAvail(name){
   const box = document.getElementById('jdAvail');
   if(!box) return;
-  const w = whiteboard.find(x => x.name === name);
-  const list = ((w && w.unavail) || []).filter(u => u.date >= localDay(0));
-  const rows = list.map(u => `
+  const w = whiteboard.find(x => x.name === name) || {};
+  const today = localDay(0);
+  const away = (w.unavail || []).filter(u => uTo(u) >= today).map(u => `
     <div class="avail-row">
       <div style="flex:1;min-width:0;">
-        <div class="avail-when">Client not available ${escapeHtml(dayWord(u.date))}</div>
+        <div class="avail-when">Not available ${escapeHtml(rangeWords(u))}</div>
         ${u.note ? `<div class="visit-who">${escapeHtml(u.note)}</div>` : ''}
       </div>
-      <button class="visit-del" onclick="clearUnavailable(currentJob, ${qa(u.date)})" aria-label="Remove">&times;</button>
+      <button class="visit-del" onclick="clearUnavailable(currentJob, ${qa(uFrom(u))})" aria-label="Remove">&times;</button>
     </div>`).join('');
-  const form = availFormOpen ? `
-    <div class="visit-form">
-      <div class="field" style="margin-bottom:8px;"><label>Not available on</label>
-        <input type="date" id="availDate" value="${localDay(0)}" min="${localDay(0)}"></div>
-      <div class="field" style="margin-bottom:10px;"><label>Note (optional)</label>
-        <input id="availNote" placeholder="e.g. Out of town until Monday"></div>
-      <div class="btn-row" style="margin-top:0;">
+  const wins = (w.avail || []).filter(a => a.date >= today).map(a => `
+    <div class="avail-row win">
+      <div style="flex:1;min-width:0;">
+        <div class="avail-when">Available ${escapeHtml(dayWord(a.date))}, ${escapeHtml(windowWords(a))}</div>
+        ${a.note ? `<div class="visit-who">${escapeHtml(a.note)}</div>` : ''}
+      </div>
+      <button class="visit-del" onclick="clearAvailWindow(currentJob, ${qa(a.date)})" aria-label="Remove">&times;</button>
+    </div>`).join('');
+  const timeRow = `
+      <div class="field" style="margin-bottom:8px;display:flex;gap:8px;">
+        <div style="flex:1;"><label>From</label><input type="time" id="availStart" step="900"></div>
+        <div style="flex:1;"><label>To</label><input type="time" id="availEnd" step="900"></div>
+      </div>`;
+  const buttons = `<div class="btn-row" style="margin-top:0;">
         <button class="btn btn-ghost" onclick="availFormOpen=false;renderJobAvail(currentJob)">Cancel</button>
         <button class="btn btn-primary" onclick="saveAvailForm()">Save</button>
+      </div>`;
+  let form;
+  if(availFormOpen === 'away'){
+    form = `<div class="visit-form">
+      <div class="field" style="margin-bottom:8px;display:flex;gap:8px;">
+        <div style="flex:1;"><label>Away from</label><input type="date" id="availFrom" value="${today}" min="${today}" onchange="availSyncNext()"></div>
+        <div style="flex:1;"><label>Through</label><input type="date" id="availTo" value="${today}" min="${today}" onchange="availSyncNext()"></div>
       </div>
-    </div>`
-    : `<button class="map-btn" style="margin-bottom:8px;" onclick="availFormOpen=true;renderJobAvail(currentJob)">Client not available&hellip;</button>`;
-  box.innerHTML = rows + form;
+      <div class="field" style="margin-bottom:8px;"><label>Note (optional)</label><input id="availNote" placeholder="e.g. Out of town"></div>
+      <div class="field" style="margin-bottom:8px;"><label>Next available (optional)</label>
+        <input type="date" id="availNextDate" value="${addDays(today, 1)}" min="${today}" oninput="this.dataset.touched=1"></div>
+      ${timeRow}
+      <div class="hint" style="margin:0 0 10px;">Leave the times empty if you don't have a window yet. Clear the date to skip it.</div>
+      ${buttons}</div>`;
+  } else if(availFormOpen === 'window'){
+    form = `<div class="visit-form">
+      <div class="field" style="margin-bottom:8px;"><label>Available on</label>
+        <input type="date" id="availNextDate" value="${today}" min="${today}"></div>
+      ${timeRow}
+      <div class="field" style="margin-bottom:10px;"><label>Note (optional)</label><input id="availNote" placeholder="e.g. Call when 10 minutes out"></div>
+      ${buttons}</div>`;
+  } else {
+    form = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+      <button class="map-btn" onclick="availFormOpen='away';renderJobAvail(currentJob)">Client not available&hellip;</button>
+      <button class="map-btn" onclick="availFormOpen='window';renderJobAvail(currentJob)">Client's available time&hellip;</button></div>`;
+  }
+  box.innerHTML = wins + away + form;
 }
 /* END CLIENT AVAILABILITY (JS) */
 
@@ -5720,6 +5858,7 @@ function recordVisit(name, tech, why, at){
 /* Board card ("Last visit") and an open job's Visits list follow at once. */
 function visitsChanged(name){
   renderBoard();
+  if(mapObj) renderMap();   // CLIENT AVAILABILITY: a visit turns today's pin light blue
   if(currentJob === name && document.getElementById('modalJob').classList.contains('active')) renderJobVisits(name);
 }
 function removeVisit(name, at){
@@ -5983,7 +6122,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-13a';
+const WB_BUILD = '2026-11-13b';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
