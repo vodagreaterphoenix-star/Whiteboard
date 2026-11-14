@@ -1744,6 +1744,12 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field"><textarea id="jdNotes" rows="3" placeholder="Anything the next person needs to know"></textarea></div>
 
   <div class="btn-row"><button class="btn btn-primary" onclick="saveJob()">Save job</button></div>
+  <!-- SHARED JOBS: changes the job in both apps at once. -->
+  <div class="btn-row" style="margin-top:10px;">
+    <button class="btn btn-ghost" onclick="renameJob()">Rename job</button>
+    <button class="btn btn-ghost" style="color:var(--red);" onclick="deleteJob()">Delete job</button>
+  </div>
+  <div class="hint" style="margin-top:6px;">Rename and Delete change the job in the Whiteboard and the Equipment Tracker together.</div>
 </div></div>
 
 <!-- ========================= NEW JOB ========================= -->
@@ -2073,7 +2079,8 @@ async function loadData(quiet){
       showToast('Backend needs updating — deploy the new Code.gs to save job details');
     }
     dataReady = true;                                              // SAVE GUARD
-    savedSizes = { clients: clients.length, whiteboard: whiteboard.length };
+    backendV2 = data.apiVersion >= 2;                               // SHARED JOBS
+    snapshotSaved();
     setSyncing(false);
     if(quiet) renderWhenIdle(); else renderAll();   // SMOOTH SCROLL
   }catch(e){
@@ -2083,44 +2090,56 @@ async function loadData(quiet){
 }
 
 /* =====================================================================
- * SAVE GUARD, added 2026-11-11
- * Both lists are saved whole, so a save made while they're empty or
- * partial would replace everything in the Sheet. Two rules:
- *   1. Nothing is saved until a real load has succeeded (dataReady).
- *   2. No save may make either list shorter than it was. The Whiteboard
- *      never deletes customers or jobs, so a shorter list is always a
- *      mistake. (Deleting, if added later, must lower savedSizes first.)
+ * SHARED JOBS (replaces the 2026-11-11 save guard), added 2026-11-13
+ * Saves send ONLY what changed on this phone, and the backend merges it
+ * in by job name under a lock. A phone holding an older copy can no
+ * longer write that copy back over everyone else's work: before this, a
+ * stale phone erased new jobs and blanked techs assigned elsewhere.
+ * Renaming and deleting go through jobOp, which changes the job in every
+ * tab both apps use. Nothing saves until a real load has succeeded, and
+ * nothing saves to a backend that can't merge (apiVersion below 2).
  * ===================================================================== */
-let dataReady = false;
-let savedSizes = { clients: 0, whiteboard: 0 };
-function saveAllowed(kind, list){
+let dataReady = false, backendV2 = false;
+let savedJson = { clients: {}, whiteboard: {} };
+function snapshotSaved(){
+  savedJson = { clients: {}, whiteboard: {} };
+  clients.forEach(c => { if(c && c.name) savedJson.clients[c.name] = JSON.stringify({ name: c.name, address: c.address || '' }); });
+  whiteboard.forEach(w => { if(w && w.name) savedJson.whiteboard[w.name] = JSON.stringify(w); });
+}
+function saveAllowed(){
   if(!dataReady){
-    showToast('Your jobs haven\u2019t finished loading, so nothing was saved. Try again in a moment.');
+    showToast('Your jobs haven’t finished loading, so nothing was saved. Try again in a moment.');
     return false;
   }
-  if(list.length < savedSizes[kind]){
-    console.error('SAVE GUARD: refused', kind, list.length, '<', savedSizes[kind]);
-    showToast('Stopped a save that would have removed jobs. Nothing was changed. Refresh the page and try again.');
+  if(!backendV2){
+    showToast('Not saved: deploy the new Code.gs to The One first (it stops phones overwriting each other).');
     return false;
   }
   return true;
 }
 async function saveClientsSafe(){
-  const rows = clients.map(x => ({ name: x.name, address: x.address || '' }));
-  if(!saveAllowed('clients', rows)) return false;
-  const r = await apiPost('saveClientInfo', rows);
-  if(r && r.error){ showToast('Not saved \u2014 ' + r.error); return false; }
-  savedSizes.clients = rows.length;
+  if(!saveAllowed()) return false;
+  const rows = clients.filter(c => c && c.name).map(x => ({ name: x.name, address: x.address || '' }))
+                      .filter(r => savedJson.clients[r.name] !== JSON.stringify(r));
+  if(!rows.length) return true;
+  try{
+    const r = await apiPost('mergeClients', rows);
+    if(r && r.error){ showToast('Not saved — ' + r.error); return false; }
+  }catch(e){ showToast('Not saved — check your connection'); return false; }
+  rows.forEach(r => { savedJson.clients[r.name] = JSON.stringify(r); });
   return true;
 }
 
 async function saveWhiteboard(){
-  if(!saveAllowed('whiteboard', whiteboard)) return false;   // SAVE GUARD
+  if(!saveAllowed()) return false;
+  const rows = whiteboard.filter(w => w && w.name && savedJson.whiteboard[w.name] !== JSON.stringify(w));
+  if(!rows.length) return true;
+  const sent = rows.map(w => [w.name, JSON.stringify(w)]);
   setSyncing(true);
   try{
-    const r = await apiPost('saveWhiteboard', whiteboard);
+    const r = await apiPost('mergeWhiteboard', rows);
     if(r && r.error){ setSyncing(false, true); showToast('Not saved — ' + r.error); return false; }
-    savedSizes.whiteboard = whiteboard.length;   // SAVE GUARD
+    sent.forEach(([n, j]) => { savedJson.whiteboard[n] = j; });
     setSyncing(false);
     return true;
   }catch(e){
@@ -2130,6 +2149,47 @@ async function saveWhiteboard(){
     return false;
   }
 }
+
+/* RENAME / DELETE: one request changes the job in every tab, then this
+   phone takes the backend's lists as they now are. */
+async function runJobOp(op){
+  if(!saveAllowed()) return null;
+  await saveWhiteboard();                 // nothing local left behind
+  setSyncing(true);
+  let r;
+  try{ r = await apiPost('jobOp', op); }
+  catch(e){ setSyncing(false, true); showToast('Not done — check your connection'); return null; }
+  if(!r || r.error){ setSyncing(false, true); showToast(r && r.error ? r.error : 'Not done'); return null; }
+  clients = r.clients; whiteboard = r.whiteboard; inventory = r.inventory;
+  activityLog = r.activity; runs = r.runs;
+  snapshotSaved();
+  lastLoadSig = '';
+  setSyncing(false);
+  return r;
+}
+async function renameJob(){
+  const from = currentJob;
+  const to = (prompt(`New name for ${from}:`, from) || '').trim();
+  if(!to || to === from) return;
+  const r = await runJobOp({ op:'rename', from, to });
+  if(!r) return;
+  currentJob = to;
+  renderAll();
+  closeModal('modalJob');
+  setTimeout(() => openJob(to), SHEET_CLOSE_MS + 20);
+  showToast(`Renamed to ${to} in both apps`);
+}
+async function deleteJob(){
+  const name = currentJob;
+  if(!confirm(`Delete ${name} from the Whiteboard AND the Equipment Tracker?\n\nIts checklist, visits, notes and equipment history go with it. This can't be undone from the app.`)) return;
+  const r = await runJobOp({ op:'delete', name });
+  if(!r) return;
+  closeModal('modalJob');
+  currentJob = null;
+  renderAll();
+  showToast(`${name} deleted from both apps`);
+}
+/* END SHARED JOBS */
 
 /* The tracker's map helpers expect these two names. */
 function visibleInventory(){ return inventory.filter(i=>!i.deletedAt); }
@@ -5923,7 +5983,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-11e';
+const WB_BUILD = '2026-11-13a';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
