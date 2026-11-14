@@ -5540,15 +5540,48 @@ function renderRoute(){
     </div>`;
   }).join('');
 
-  list.innerHTML = warn + sortBar + head + cards + renderGrabs(stops);
+  list.innerHTML = warn + sortBar + head + cards + renderAssigned(stops) + renderGrabs(stops);
 }
 
 /* LIVE LOCATION: every other job near you, closest first: unrouted ones
    (with Add) and ones on another tech's route (labelled whose). Measured
    from where you are, or without a location from your nearest stop, or
    the shop. */
+/* ASSIGNED TO YOU, added 2026-11-13: every open job whose "Assigned to"
+   is the person picked on this tab, that isn't on their route that day.
+   Closest first; Add puts it on the route. Those jobs are left out of
+   Other jobs nearby so nothing is listed twice. */
+function assignedNotRouted(stops){
+  if(!routeTech || routeTech === '*') return [];
+  const mine = new Set(stops.map(s => s.name));
+  return allJobs().filter(j => j.tech === routeTech && !mine.has(j.name) && j.stage !== 'complete');
+}
+function renderAssigned(stops){
+  const jobs = assignedNotRouted(stops);
+  if(!jobs.length) return '';
+  const from = myPosition || shopPoint();
+  const rows = jobs.map(j => { const p = jobPoint(j.name); return { j, d: (p && from) ? mapDistanceMi(from, p) : null }; })
+                   .sort((a, b) => (a.d === null ? 1e9 : a.d) - (b.d === null ? 1e9 : b.d));
+  return `<div class="section-title">Assigned to ${escapeHtml(routeTech)}, not on this route (${rows.length})</div>` + rows.map(({ j, d }) => `
+    <div class="stop mine">
+      <div class="stop-head">
+        <div style="flex:1;min-width:0;">
+          <div class="stop-name">${escapeHtml(j.name)}</div>
+          <div class="stop-addr">${escapeHtml(j.address || 'No address saved')}</div>
+          ${whyChips(suggestedReasons(j))}
+          ${d !== null ? `<div class="stop-note quiet">${d.toFixed(1)} mi from ${myPosition ? 'you' : 'the shop'}</div>` : ''}
+          ${availWindowOn(j.name, routeDate) ? `<div class="window-tag">Priority: available ${escapeHtml(windowWords(availWindowOn(j.name, routeDate)))}</div>` : ''}
+          ${unavailOn(j.name, routeDate) ? `<div class="unavail-tag">Client not available ${escapeHtml(rangeWords(unavailOn(j.name, routeDate)))}</div>` : ''}
+        </div>
+        <button class="map-btn go" onclick="routeGrab(${qa(j.name)})">Add</button>
+      </div>
+      <div class="stop-acts"><button class="map-btn" onclick="openJob(${qa(j.name)})">Open job</button></div>
+    </div>`).join('');
+}
+
 function renderGrabs(stops){
   const mine = new Set(stops.map(s => s.name));
+  assignedNotRouted(stops).forEach(j => mine.add(j.name));   // ASSIGNED TO YOU: listed above already
   const minePts = stops.map(s => jobPoint(s.name)).filter(Boolean);
   const shop = shopPoint();
   const fromWhat = myPosition ? 'you' : minePts.length ? 'your nearest stop' : 'the shop';
@@ -5883,6 +5916,7 @@ function visitDay(at){
 const VISITS_SHOWN = 10;
 /* LOG A VISIT: the form in the job's Visits section. */
 let visitFormOpen = false, visitWho = '', visitWhy = [];
+let visitDate = '', visitClock = '';   // VISIT TIME: when it actually happened
 
 function openVisitForm(){
   const j = jobByName(currentJob);
@@ -5892,6 +5926,9 @@ function openVisitForm(){
   visitWho = (routeTech && routeTech !== '*') ? routeTech : ((j && j.tech) || personnel[0] || '');
   /* Why: what today's route says, else what the job suggests. */
   visitWhy = (stop && stop.why && stop.why.length) ? stop.why.slice() : suggestedReasons(j);
+  const now = new Date();
+  visitDate = localDay(0);
+  visitClock = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   visitFormOpen = true;
   renderJobVisits(currentJob);
 }
@@ -5903,11 +5940,15 @@ async function saveVisitForm(){
   const name = currentJob;
   const who = (document.getElementById('visitWho') || {}).value || visitWho;
   if(!who){ showToast('Pick who made the visit'); return; }
-  const at = new Date().toISOString();
+  /* VISIT TIME: the date and time entered, in this phone's time zone. */
+  const when = new Date(`${visitDate || localDay(0)}T${visitClock || '00:00'}:00`);
+  if(isNaN(when)){ showToast('Check the date and time'); return; }
+  if(when.getTime() > Date.now() + 5 * 60000){ showToast('That time hasn\u2019t happened yet'); return; }
+  const at = when.toISOString();
   visitFormOpen = false;
   recordVisit(name, who, visitWhy, at);
-  /* On that person's route today? Check the stop off too, same time. */
-  const cur = runFor(who, localDay(0));
+  /* On that person's route that day? Check the stop off too, same time. */
+  const cur = runFor(who, visitDate || localDay(0));
   const i = cur ? cur.stops.findIndex(x => x.name === name && !x.done) : -1;
   if(i >= 0){
     const run = cloneRun(cur);
@@ -5940,6 +5981,10 @@ function renderJobVisits(name){
     <div class="visit-form">
       <div class="field" style="margin-bottom:8px;"><label>Who visited</label>
         <select id="visitWho" onchange="visitWho=this.value">${personnel.map(p => `<option ${p === visitWho ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></div>
+      <div class="field" style="margin-bottom:8px;display:flex;gap:8px;">
+        <div style="flex:1;"><label>Date</label><input type="date" id="visitDate" value="${visitDate}" max="${localDay(0)}" oninput="visitDate=this.value"></div>
+        <div style="flex:1;"><label>Time</label><input type="time" id="visitClock" value="${visitClock}" oninput="visitClock=this.value"></div>
+      </div>
       <div class="why-row" style="margin-bottom:10px;">${VISIT_REASONS.map(r =>
         `<button class="why ${r.id} ${visitWhy.includes(r.id) ? 'on' : ''}" onclick="visitToggleWhy('${r.id}')">${r.label}</button>`).join('')}</div>
       <div class="btn-row" style="margin-top:0;">
@@ -6122,7 +6167,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-13b';
+const WB_BUILD = '2026-11-13c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
