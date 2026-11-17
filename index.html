@@ -947,6 +947,16 @@ html.ua-crios .sheet{max-height:88svh;}
 .rt-win-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:600;color:var(--muted);}
 .rt-win-row input[type=time]{flex:1 1 110px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:15px;background:var(--card);color:var(--ink);}
 .rt-win .stop-acts{margin-top:8px;}
+/* TIME FIELD: typed on the number pad, AM/PM from a picker. */
+.tf{display:flex;gap:6px;align-items:stretch;flex:1 1 150px;min-width:0;}
+.tf .tf-num{flex:1 1 70px;min-width:0;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:16px;background:var(--card);color:var(--ink);}
+.tf .tf-ap{flex:0 0 auto;padding:9px 8px;border:1px solid var(--line);border-radius:8px;font-size:16px;font-weight:700;background:var(--card);color:var(--ink);}
+.tf .tf-num.bad{border-color:#DC2626;}
+.field .tf .tf-ap, .tf .tf-ap{width:auto;min-width:64px;}
+.rt-win-row{flex-wrap:nowrap;}
+.rt-win-row .tf{flex:1 1 auto;}
+.rt-win-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+.rt-win-lbl{flex:0 0 40px;}
 .window-tag{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#fff;background:#DC2626;border-radius:6px;padding:2px 7px;}
 .avail-row.win{border-color:#FCA5A5;background:#FEF2F2;}
 .avail-row.win .avail-when{color:#B91C1C;}
@@ -6534,6 +6544,66 @@ function clearAvailWindow(name, date){
   saveWhiteboard();
 }
 /* =====================================================================
+ * BEGIN TIME FIELD (JS), added 2026-11-17
+ * Replaces the phone's time wheel: the hour and minutes are typed on the
+ * number pad (9, 930, 1130, or 15:30), and AM/PM is a picker beside it.
+ * A hidden input with the original id holds the value as "HH:MM"
+ * (24-hour), so every form reads it exactly as before.
+ * Used by: Route "Set time", Client availability, Log a visit.
+ * ===================================================================== */
+function timeFieldHtml(id, value, attrs, onChange){
+  const m = /^(\d{1,2}):(\d{2})/.exec(value || '');
+  let shown = '', pm = false;
+  if(m){ const h = +m[1]; pm = h >= 12; shown = (h % 12 || 12) + ':' + m[2]; }
+  return `<span class="tf">
+    <input type="hidden" id="${id}" value="${m ? escapeHtml(value.slice(0, 5)) : ''}" ${onChange ? `oninput="${onChange}"` : ''}>
+    <input class="tf-num" id="${id}_n" type="text" inputmode="numeric" pattern="[0-9:]*" maxlength="5" autocomplete="off"
+      placeholder="9:00" value="${shown}" ${attrs || ''} oninput="tfInput('${id}')" onblur="tfTidy('${id}')">
+    <select class="tf-ap" id="${id}_ap" aria-label="AM or PM" onchange="this.dataset.picked='1'; tfInput('${id}')" ${m ? 'data-picked="1"' : ''}>
+      <option${pm ? '' : ' selected'}>AM</option><option${pm ? ' selected' : ''}>PM</option></select>
+  </span>`;
+}
+/* "9" -> 9:00, "930" -> 9:30, "1130" -> 11:30, "1530" -> 3:30 PM.
+   Returns { h, m, h24 } or null; '' for an empty box. */
+function tfParse(txt){
+  const t = String(txt || '').replace(/[^\d:]/g, '');
+  if(!t) return '';
+  let h, m;
+  if(t.includes(':')){ const [a, b] = t.split(':'); h = +a; m = b === '' ? 0 : +b; if(b.length === 1) m = +b * 10; }
+  else if(t.length <= 2){ h = +t; m = 0; }
+  else { h = +t.slice(0, t.length - 2); m = +t.slice(-2); }
+  if(isNaN(h) || isNaN(m) || h > 23 || m > 59) return null;
+  return { h, m, h24: h >= 13 || h === 0 };
+}
+function tfInput(id){
+  const num = document.getElementById(id + '_n'), ap = document.getElementById(id + '_ap'), out = document.getElementById(id);
+  const p = tfParse(num.value);
+  num.classList.toggle('bad', p === null);
+  if(p === '') delete ap.dataset.picked;   // box cleared: the next time typed gets a fresh AM/PM guess
+  let v = '';
+  if(p){
+    let h = p.h;
+    if(p.h24){ ap.value = h >= 12 ? 'PM' : 'AM'; }   // typed as 24-hour: the picker follows
+    else {
+      /* No AM/PM picked yet: guess from a work day (7-11 morning,
+         12 and 1-6 afternoon). Once someone picks, their pick stands. */
+      if(!ap.dataset.picked) ap.value = (h >= 7 && h <= 11) ? 'AM' : 'PM';
+      h = (h % 12) + (ap.value === 'PM' ? 12 : 0);
+    }
+    v = String(h).padStart(2, '0') + ':' + String(p.m).padStart(2, '0');
+  }
+  if(out.value !== v){ out.value = v; out.dispatchEvent(new Event('input')); }
+}
+/* Leaving the box: show what was understood, e.g. "930" becomes 9:30. */
+function tfTidy(id){
+  const v = document.getElementById(id).value, num = document.getElementById(id + '_n');
+  if(!v) return;
+  const h = +v.slice(0, 2);
+  num.value = (h % 12 || 12) + ':' + v.slice(3, 5);
+}
+/* END TIME FIELD (JS) */
+
+/* =====================================================================
  * BEGIN ROUTE TIME WINDOWS (JS), added 2026-11-17
  * "Set time" on a Route stop: when the client is available that route's
  * day. It is the same window as the job's Client availability (w.avail
@@ -6551,9 +6621,9 @@ function rtWinToggle(name){ rtWinFor = rtWinFor === name ? '' : name; renderRout
 function rtWinEditor(name){
   const w = availWindowOn(name, routeDate) || {};
   return `<div class="rt-win">
-    <div class="rt-win-row">Available ${escapeHtml(dayWord(routeDate))}
-      <input type="time" id="rtWinStart" value="${escapeHtml(w.start || '')}" aria-label="From">
-      to <input type="time" id="rtWinEnd" value="${escapeHtml(w.end || '')}" aria-label="To"></div>
+    <div class="rt-win-title">Available ${escapeHtml(dayWord(routeDate))}</div>
+    <div class="rt-win-row"><span class="rt-win-lbl">From</span>${timeFieldHtml('rtWinStart', w.start, 'aria-label="From"')}</div>
+    <div class="rt-win-row" style="margin-top:6px;"><span class="rt-win-lbl">To</span>${timeFieldHtml('rtWinEnd', w.end, 'aria-label="To"')}</div>
     <div class="stop-acts">
       <button class="map-btn go" onclick="rtWinSave(${qa(name)})">Save time</button>
       ${w.date ? `<button class="map-btn" onclick="rtWinClear(${qa(name)})">Remove time</button>` : ''}
@@ -6646,8 +6716,8 @@ function renderJobAvail(name){
     </div>`).join('');
   const timeRow = `
       <div class="field" style="margin-bottom:8px;display:flex;gap:8px;">
-        <div style="flex:1;"><label>From</label><input type="time" id="availStart" step="900"></div>
-        <div style="flex:1;"><label>To</label><input type="time" id="availEnd" step="900"></div>
+        <div style="flex:1;"><label>From</label>${timeFieldHtml('availStart', '')}</div>
+        <div style="flex:1;"><label>To</label>${timeFieldHtml('availEnd', '')}</div>
       </div>`;
   const buttons = `<div class="btn-row" style="margin-top:0;">
         <button class="btn btn-ghost" onclick="availFormOpen=false;renderJobAvail(currentJob)">Cancel</button>
@@ -6795,7 +6865,7 @@ function renderJobVisits(name){
         <select id="visitWho" onchange="visitWho=this.value">${personnel.map(p => `<option ${p === visitWho ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></div>
       <div class="field" style="margin-bottom:8px;display:flex;gap:8px;">
         <div style="flex:1;"><label>Date</label><input type="date" id="visitDate" value="${visitDate}" max="${localDay(0)}" oninput="visitDate=this.value"></div>
-        <div style="flex:1;"><label>Time</label><input type="time" id="visitClock" value="${visitClock}" oninput="visitClock=this.value"></div>
+        <div style="flex:1;"><label>Time</label>${timeFieldHtml('visitClock', visitClock, '', 'visitClock=this.value')}</div>
       </div>
       <div class="why-row" style="margin-bottom:10px;">${VISIT_REASONS.map(r =>
         `<button class="why ${r.id} ${visitWhy.includes(r.id) ? 'on' : ''}" onclick="visitToggleWhy('${r.id}')">${r.label}</button>`).join('')}</div>
@@ -6985,7 +7055,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-17a';
+const WB_BUILD = '2026-11-17b';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
