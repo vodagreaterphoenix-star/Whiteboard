@@ -1072,7 +1072,7 @@ chrome_annotation{border-bottom:none !important;text-decoration:none !important;
 .dash-item.sug{background:var(--blue-bg);color:var(--blue);}
 .dash-clear{font-size:11.5px;color:var(--muted);margin-top:4px;}
 /* BEGIN ASBESTOS FLAG (CSS): the testing question under Year built. */
-.asb-box{border:1px solid #F5C2C7;background:rgba(225,29,72,.05);border-radius:12px;padding:10px 12px;margin:-2px 0 12px;}
+.asb-box{border:1px solid #F5C2C7;background:rgba(225,29,72,.05);border-radius:12px;padding:10px 12px;margin:-2px 0 10px;}
 .asb-flag{font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:8px;}
 .asb-check{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer;}
 .asb-check input{width:22px;height:22px;accent-color:var(--navy);margin:0;flex:none;}
@@ -1080,7 +1080,13 @@ chrome_annotation{border-bottom:none !important;text-decoration:none !important;
 .asb-box .chip-row{margin-bottom:0;}
 .asb-box .chip.asb-pos.active{background:#E11D48;border-color:#E11D48;color:#fff;}
 .asb-box .chip.asb-neg.active{background:#16A34A;border-color:#16A34A;color:#fff;}
-.asb-src{font-size:12px;color:var(--muted);margin:-4px 0 10px;}
+.asb-done{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:12px;padding:9px 12px;margin:-2px 0 10px;font-size:14px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);}
+.asb-done.pos{border-color:#F5C2C7;color:#B91C1C;}
+.asb-done.neg span{color:#15803D;}
+.asb-done button{border:0;background:none;color:var(--muted);font-size:13px;font-weight:600;text-decoration:underline;padding:4px;cursor:pointer;}
+[data-theme="dark"] .asb-done.pos{border-color:rgba(248,113,113,.35);color:#FCA5A5;}
+[data-theme="dark"] .asb-done.neg span{color:#4ADE80;}
 [data-theme="dark"] .asb-box{border-color:rgba(248,113,113,.35);background:rgba(225,29,72,.10);}
 [data-theme="dark"] .asb-flag{color:#FCA5A5;}
 /* END ASBESTOS FLAG (CSS) */
@@ -2989,7 +2995,6 @@ function yearBuiltHint(prefix){
 const ASB_CUTOFF = 1985;
 const YB_URL = 'https://gis.mcassessor.maricopa.gov/arcgis/rest/services/Parcels/MapServer/0/query';
 const ybCache = {};          // address -> year, or '' when the county has none
-let njAsb = { done:false, result:'' };
 
 /* "1439 E Breezy Ct, Phoenix, AZ 85086" -> number 1439, street word
    BREEZY, ZIP 85086. Directions and street types are dropped because the
@@ -3118,61 +3123,93 @@ async function ybLookupSaved(name, addr){
   ckQueueSave();
 }
 
-/* Pre-1985 and nobody has answered the asbestos question yet: flag it as
-   Needed. An answer someone already gave (even No) is left alone. */
+/* LEAD FLAG, added 11-16e: lead works the same way as asbestos, with
+   the federal lead cut-off of 1978 (EPA's Renovation, Repair and
+   Painting rule; Arizona has no program of its own). Each question only
+   appears once the year built is under its cut-off, or once testing has
+   been recorded. With a result picked, its box folds to one line. */
+const TEST_FLAGS = [
+  { id:'asbestos', word:'asbestos', cutoff: ASB_CUTOFF },
+  { id:'lead',     word:'lead',     cutoff: 1978 }
+];
+const njTestsBlank = () => ({ asbestos:{ done:false, result:'' }, lead:{ done:false, result:'' } });
+let njTests = njTestsBlank();
+const asbOpen = {};   // a folded result someone tapped Change on, per job and test
+
+/* Under the cut-off and nobody has answered the question yet: flag it
+   as Needed. An answer someone already gave (even No) is left alone. */
 function asbAutoFlag(w){
   const y = +w.yearBuilt;
-  if(!y || y >= ASB_CUTOFF) return;
-  w.checklist = w.checklist || {};
-  if(w.checklist.asbestos && w.checklist.asbestos.a) return;
-  w.checklist.asbestos = { a:'yes', s:'needed', t: new Date().toISOString() };
+  if(!y) return;
+  TEST_FLAGS.forEach(f => {
+    if(y >= f.cutoff) return;
+    w.checklist = w.checklist || {};
+    if(w.checklist[f.id] && w.checklist[f.id].a) return;
+    w.checklist[f.id] = { a:'yes', s:'needed', t: new Date().toISOString() };
+  });
 }
 
-function asbState(prefix){
-  if(prefix === 'nj') return njAsb;
+/* Lead's Abated still counts as a Positive result here. */
+function asbState(prefix, kind){
+  if(prefix === 'nj') return njTests[kind];
   const j = allJobs().find(x => x.name === currentJob) || {};
-  const s = ckSid(j, 'asbestos');
-  return { done: ['sampled', 'clear', 'positive'].includes(s), result: ['clear', 'positive'].includes(s) ? s : '' };
+  const s = ckSid(j, kind);
+  return { done: ['sampled', 'clear', 'positive', 'abated'].includes(s),
+           result: s === 'clear' ? 'clear' : (s === 'positive' || s === 'abated') ? 'positive' : '' };
+}
+
+function testCardHtml(prefix, f, y){
+  const st = asbState(prefix, f.id);
+  const old = y && y < f.cutoff;
+  if(!old && !st.done) return '';
+  const key = (prefix === 'jd' ? currentJob : '(new)') + '|' + f.id;
+  const Word = f.word[0].toUpperCase() + f.word.slice(1);
+  if(st.result && !asbOpen[key]){
+    const pos = st.result === 'positive';
+    return `<div class="asb-done ${pos ? 'pos' : 'neg'}">
+      <span>${pos ? '&#9888;' : '&#10003;'} ${Word} tested: <b>${pos ? 'Positive (hot)' : 'Negative'}</b></span>
+      <button type="button" data-k="${escapeHtml(key)}" onclick="asbOpen[this.dataset.k]=true; renderAsbBox('${prefix}')">Change</button></div>`;
+  }
+  return `<div class="asb-box">
+    ${old ? `<div class="asb-flag">&#9888; Built in ${y}, before ${f.cutoff}: flagged for ${f.word}</div>` : ''}
+    <label class="asb-check"><input type="checkbox" ${st.done ? 'checked' : ''} onchange="asbSetDone('${prefix}','${f.id}', this.checked)"> Has ${f.word} testing been done?</label>
+    ${st.done ? `<div class="asb-q">${Word} result</div>
+      <div class="chip-row">
+        <div class="chip asb-neg ${st.result === 'clear' ? 'active' : ''}" onclick="asbSetResult('${prefix}','${f.id}','clear')">Negative</div>
+        <div class="chip asb-pos ${st.result === 'positive' ? 'active' : ''}" onclick="asbSetResult('${prefix}','${f.id}','positive')">Positive (hot)</div>
+      </div>` : ''}</div>`;
 }
 
 function renderAsbBox(prefix){
   const box = document.getElementById(prefix + 'AsbBox');
   if(!box) return;
   const y = +cleanYearBuilt(document.getElementById(prefix + 'YearBuilt').value);
-  const st = asbState(prefix);
-  const old = y && y < ASB_CUTOFF;
-  if(!old && !st.done){ box.innerHTML = ''; box.className = ''; return; }
-  box.className = 'asb-box';
-  box.innerHTML = `
-    ${old ? `<div class="asb-flag">&#9888; Built in ${y}, before ${ASB_CUTOFF}: flagged for asbestos</div>` : ''}
-    <label class="asb-check"><input type="checkbox" ${st.done ? 'checked' : ''} onchange="asbSetDone('${prefix}', this.checked)"> Has testing been done?</label>
-    ${st.done ? `<div class="asb-q">Result</div>
-      <div class="chip-row">
-        <div class="chip asb-neg ${st.result === 'clear' ? 'active' : ''}" onclick="asbSetResult('${prefix}','clear')">Negative</div>
-        <div class="chip asb-pos ${st.result === 'positive' ? 'active' : ''}" onclick="asbSetResult('${prefix}','positive')">Positive (hot)</div>
-      </div>` : ''}`;
+  box.innerHTML = TEST_FLAGS.map(f => testCardHtml(prefix, f, y)).join('');
 }
 
 /* In a job these save at once, like the Checklist they belong to. In
-   New Job they wait for Create job. */
-function asbSetDone(prefix, on){
-  if(prefix === 'nj'){ njAsb.done = on; if(!on) njAsb.result = ''; }
-  else {
-    const cur = asbState('jd');
-    ckStatus('asbestos', on ? (cur.result || 'sampled') : 'needed');
-  }
+   New Job they wait for Create job. Picking a result folds the box. */
+function asbSetDone(prefix, kind, on){
+  if(prefix === 'nj'){ njTests[kind].done = on; if(!on) njTests[kind].result = ''; }
+  else ckStatus(kind, on ? (asbState('jd', kind).result || 'sampled') : 'needed');
   renderAsbBox(prefix);
 }
-function asbSetResult(prefix, r){
-  if(prefix === 'nj') njAsb.result = njAsb.result === r ? '' : r;
-  else ckStatus('asbestos', asbState('jd').result === r ? 'sampled' : r);   // tapping it again takes it back
+function asbSetResult(prefix, kind, r){
+  const key = (prefix === 'jd' ? currentJob : '(new)') + '|' + kind;
+  const again = asbState(prefix, kind).result === r;   // tapping it again takes it back
+  if(prefix === 'nj') njTests[kind].result = again ? '' : r;
+  else ckStatus(kind, again ? 'sampled' : r);
+  if(!again) delete asbOpen[key];
   renderAsbBox(prefix);
 }
 function asbFromNewJob(w){
-  if(njAsb.done){
+  TEST_FLAGS.forEach(f => {
+    const t = njTests[f.id];
+    if(!t.done) return;
     w.checklist = w.checklist || {};
-    w.checklist.asbestos = { a:'yes', s: njAsb.result || 'sampled', t: new Date().toISOString() };
-  } else asbAutoFlag(w);
+    w.checklist[f.id] = { a:'yes', s: t.result || 'sampled', t: new Date().toISOString() };
+  });
+  asbAutoFlag(w);
 }
 /* END ASBESTOS FLAG (JS) */
 
@@ -3260,7 +3297,7 @@ function openNewJob(){
   syncWaterCat('nj');                                                          // WATER CATEGORY
   attachAddressSuggest('njAddress');
   ybWatch('nj', 'njAddress');                   // ASBESTOS FLAG
-  njAsb = { done:false, result:'' }; ybReset('nj'); yearBuiltHint('nj'); renderAsbBox('nj');
+  njTests = njTestsBlank(); delete asbOpen['(new)|asbestos']; delete asbOpen['(new)|lead']; ybReset('nj'); yearBuiltHint('nj'); renderAsbBox('nj');
   openModal('modalNewJob');
 }
 async function createJob(){
@@ -6431,7 +6468,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-16d';
+const WB_BUILD = '2026-11-16e';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
