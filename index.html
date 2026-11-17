@@ -1071,6 +1071,20 @@ chrome_annotation{border-bottom:none !important;text-decoration:none !important;
 .dash-item.old{background:var(--red-bg);color:var(--red);}
 .dash-item.sug{background:var(--blue-bg);color:var(--blue);}
 .dash-clear{font-size:11.5px;color:var(--muted);margin-top:4px;}
+/* BEGIN ASBESTOS FLAG (CSS): the testing question under Year built. */
+.asb-box{border:1px solid #F5C2C7;background:rgba(225,29,72,.05);border-radius:12px;padding:10px 12px;margin:-2px 0 12px;}
+.asb-flag{font-size:13px;font-weight:700;color:#B91C1C;margin-bottom:8px;}
+.asb-check{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer;}
+.asb-check input{width:22px;height:22px;accent-color:var(--navy);margin:0;flex:none;}
+.asb-q{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px;}
+.asb-box .chip-row{margin-bottom:0;}
+.asb-box .chip.asb-pos.active{background:#E11D48;border-color:#E11D48;color:#fff;}
+.asb-box .chip.asb-neg.active{background:#16A34A;border-color:#16A34A;color:#fff;}
+.asb-src{font-size:12px;color:var(--muted);margin:-4px 0 10px;}
+[data-theme="dark"] .asb-box{border-color:rgba(248,113,113,.35);background:rgba(225,29,72,.10);}
+[data-theme="dark"] .asb-flag{color:#FCA5A5;}
+/* END ASBESTOS FLAG (CSS) */
+
 /* ---- Dashboard cards: job mix, specialist testing, abatement ---- */
 .dash-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-top:12px;}
 .dash-card.hot{border-color:#C2410C;}
@@ -1754,8 +1768,9 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field" id="jdWaterCatField" style="display:none;"><label>Water category</label><select id="jdWaterCat"></select></div>   <!-- WATER CATEGORY -->
   <div class="field"><label>Date of loss</label><input id="jdLossDate" type="date"></div>
   <!-- BEGIN YEAR BUILT. Touch points outside this block: openJob (fill), saveJob (save). -->
-  <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="yearBuiltHint()"></div>
+  <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="ybTyped('jd')"></div>
   <div class="hint" id="jdYearHint" style="display:none;margin-top:-4px;"></div>
+  <div id="jdAsbBox"></div>   <!-- ASBESTOS FLAG -->
   <!-- END YEAR BUILT -->
   <div class="field"><label>Carrier</label><input id="jdCarrier" placeholder="Insurance company" oninput="syncField('jdCarrier','jdEstCarrier')"></div>
   <div class="field"><label>Claim number</label><input id="jdClaim" spellcheck="false" oninput="syncField('jdClaim','jdEstClaim')"></div>
@@ -1805,6 +1820,10 @@ details.hsec{scroll-margin-top:8px;}
   <div class="hint" style="margin:0 0 12px;">Several jobs at once, one per line. Duplicates are found and left out.</div>
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
   <div class="field"><label>Address</label><input id="njAddress" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
+  <!-- ASBESTOS FLAG: Year built sits under the address so the county lookup lands where it's seen. -->
+  <div class="field"><label>Year built</label><input id="njYearBuilt" inputmode="numeric" maxlength="4" placeholder="Filled in from the address" oninput="ybTyped('nj')"></div>
+  <div class="hint" id="njYearHint" style="display:none;margin-top:-4px;"></div>
+  <div id="njAsbBox"></div>
   <div class="field"><label>Type of loss</label><select id="njLoss" onchange="syncWaterCat('nj')"></select></div>
   <div class="field" id="njWaterCatField" style="display:none;"><label>Water category</label><select id="njWaterCat"></select></div>   <!-- WATER CATEGORY -->
   <!-- SCREENSHOT IMPORT: the job details beyond name and address. Folded
@@ -1816,7 +1835,6 @@ details.hsec{scroll-margin-top:8px;}
     <div class="field"><label>Insurance carrier</label><input id="njCarrier"></div>
     <div class="field"><label>Claim #</label><input id="njClaim"></div>
     <div class="field"><label>Date of loss</label><input id="njLossDate" type="date"></div>
-    <div class="field"><label>Year built</label><input id="njYearBuilt" inputmode="numeric" maxlength="4" placeholder="e.g. 1978"></div>
     <div class="field"><label>Notes</label><textarea id="njNotes" rows="4"></textarea></div>
   </div>
   <!-- STICKY SAVE -->
@@ -2700,6 +2718,7 @@ async function pickSuggestion(inputId, i){
   if(!row) return;
   document.getElementById(inputId).value = row.label;
   hideSuggestions(inputId);
+  if(inputId === 'jdAddr' || inputId === 'njAddress') ybAuto(inputId === 'jdAddr' ? 'jd' : 'nj');   // ASBESTOS FLAG
   if(row.pt && row.pt.lat !== undefined){
     geocache[mapNorm(row.label)] = { lat: +(+row.pt.lat).toFixed(6),
                                      lon: +(+row.pt.lon).toFixed(6) };
@@ -2842,7 +2861,10 @@ function openJob(name){
   renderEstimate();   // ESTIMATE: after carrier and claim are filled, so its copies match
   document.getElementById('jdLossDate').value = j.lossDate|| '';
   document.getElementById('jdYearBuilt').value = j.yearBuilt || '';   // YEAR BUILT
-  yearBuiltHint();                                                    // YEAR BUILT
+  ybReset('jd');                                                      // ASBESTOS FLAG
+  yearBuiltHint('jd');                                                // YEAR BUILT
+  renderAsbBox('jd');                                                 // ASBESTOS FLAG
+  if(!j.yearBuilt && j.address) ybLookupSaved(name, j.address);      // ASBESTOS FLAG
   document.getElementById('jdNotes').value    = j.notes   || '';
 
   document.getElementById('jdLoss').innerHTML = lossOptions(j.loss);                 // WATER CATEGORY
@@ -2854,6 +2876,7 @@ function openJob(name){
 
   renderAccessBlock(j);
   attachAddressSuggest('jdAddr');
+  ybWatch('jd', 'jdAddr');   // ASBESTOS FLAG
   openModal('modalJob');
 }
 
@@ -2929,21 +2952,230 @@ function cleanYearBuilt(v){
 /* Pre-1980 is the cut-off the findings design uses for asbestos testing
    before demo. Shown as a hint only; it becomes a real action once the
    findings rules list exists. */
-function yearBuiltHint(){
-  const el = document.getElementById('jdYearHint');
-  const raw = document.getElementById('jdYearBuilt').value.trim();
+function yearBuiltHint(prefix){
+  prefix = prefix || 'jd';
+  const el = document.getElementById(prefix + 'YearHint');
+  const raw = document.getElementById(prefix + 'YearBuilt').value.trim();
   const y = cleanYearBuilt(raw);
   if(raw.length === 4 && !y){
     el.textContent = 'That doesn\u2019t look like a valid year.';
     el.style.display = '';
-  } else if(y && +y < 1980){
-    el.textContent = 'Built before 1980: asbestos testing is flagged in the Checklist above.';
-    el.style.display = '';
-  } else {
+  } else if(!el.dataset.src){
     el.style.display = 'none';
+  } else {
+    el.textContent = el.dataset.src;
+    el.style.display = '';
   }
 }
 /* END YEAR BUILT helpers */
+
+/* =====================================================================
+ * BEGIN ASBESTOS FLAG (JS), added 2026-11-16
+ * A home built before 1985 is flagged for asbestos. The year is filled in
+ * from the Maricopa County Assessor's parcel record as soon as there's an
+ * address. Under Year built: "Has testing been done?" and, once ticked,
+ * Negative or Positive. Positive makes the job hot.
+ *
+ * No new data: it reads and writes the Checklist's asbestos answer
+ *   needed   = flagged, not tested     sampled = tested, no result yet
+ *   clear    = Negative                positive = Positive (hot)
+ * so the Checklist, the red pins and the Dashboard all stay in step.
+ *
+ * Touch points: the Year built field in both forms, openJob, saveJob,
+ * openNewJob, createJob, pickSuggestion, the screenshot import, and
+ * checkSuggest (cut-off). Outside Maricopa County the lookup finds
+ * nothing and the year is typed in by hand, as before.
+ * ===================================================================== */
+const ASB_CUTOFF = 1985;
+const YB_URL = 'https://gis.mcassessor.maricopa.gov/arcgis/rest/services/Parcels/MapServer/0/query';
+const ybCache = {};          // address -> year, or '' when the county has none
+let njAsb = { done:false, result:'' };
+
+/* "1439 E Breezy Ct, Phoenix, AZ 85086" -> number 1439, street word
+   BREEZY, ZIP 85086. Directions and street types are dropped because the
+   county writes them its own way; the number and the main word are
+   enough to find the parcel. */
+const YB_SKIP = new Set(('N S E W NE NW SE SW NORTH SOUTH EAST WEST ST STREET AVE AVENUE AV DR DRIVE RD ROAD LN LANE CT COURT ' +
+  'WAY PL PLACE BLVD CIR CIRCLE TRL TRAIL PKWY TER PATH LOOP PASS RUN XING HWY SQ ALY').split(' '));
+function ybParse(addr){
+  const s = String(addr || '').toUpperCase().replace(/[.#]/g, ' ');
+  const m = s.match(/^\s*(\d+)\s+([^,]+)/);
+  if(!m) return null;
+  const street = m[2].split(/\s+(?:APT|UNIT|STE|SUITE|BLDG)\b/)[0];
+  const words = street.split(/\s+/).filter(w => w && !YB_SKIP.has(w));
+  if(!words.length) return null;
+  const word = words.slice().sort((a, b) => b.length - a.length)[0].replace(/'/g, "''");
+  const zip = (s.match(/\b(\d{5})(?:-\d{4})?\s*$/) || [])[1] || '';
+  const city = (s.split(',')[1] || '').trim();
+  return { num: m[1], word, zip, city };
+}
+
+async function ybQuery(params){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 9000);
+  try{
+    const q = new URLSearchParams(Object.assign({ outFields:'PHYSICAL_ADDRESS,PHYSICAL_CITY,PHYSICAL_ZIP,CONST_YEAR',
+      returnGeometry:'false', f:'json' }, params));
+    const res = await fetch(YB_URL + '?' + q.toString(), { signal: ctl.signal });
+    const data = await res.json();
+    return (data && data.features || []).map(f => f.attributes || {});
+  } finally { clearTimeout(t); }
+}
+
+/* Prefers the parcel in the same ZIP, then the same city, because the
+   same house number and street word can turn up in two towns. */
+function ybPick(rows, p){
+  const yr = a => { const m = String(a.CONST_YEAR || '').match(/\b(1[89]\d\d|20\d\d)\b/); return m ? m[1] : ''; };
+  let pool = rows.filter(a => yr(a));
+  if(p && p.zip){ const z = pool.filter(a => String(a.PHYSICAL_ZIP || '').slice(0, 5) === p.zip); if(z.length) pool = z; }
+  if(p && p.city){ const c = pool.filter(a => String(a.PHYSICAL_CITY || '').toUpperCase().trim() === p.city); if(c.length) pool = c; }
+  return pool.length ? cleanYearBuilt(yr(pool[0])) : '';
+}
+
+/* Address first; if that misses, the parcel under the job's map pin. */
+async function ybLookup(addr){
+  const key = mapNorm(addr);
+  if(key in ybCache) return ybCache[key];
+  let year = '';
+  try{
+    const p = ybParse(addr);
+    if(p) year = ybPick(await ybQuery({ where: `PHYSICAL_ADDRESS LIKE '${p.num} %${p.word}%'` }), p);
+    const pin = !year && geocache[key];
+    if(pin && pin.lat !== undefined){
+      year = ybPick(await ybQuery({ geometry: `${pin.lon},${pin.lat}`, geometryType:'esriGeometryPoint', inSR:'4326',
+        spatialRel:'esriSpatialRelIntersects' }), null);
+    }
+  }catch(e){ return null; }   // offline or the county site is down: try again next time
+  ybCache[key] = year;
+  return year;
+}
+
+/* Typing a year by hand takes over from the county's. */
+function ybTyped(prefix){
+  const el = document.getElementById(prefix + 'YearHint');
+  delete el.dataset.src;
+  document.getElementById(prefix + 'YearBuilt').dataset.auto = '';
+  yearBuiltHint(prefix);
+  renderAsbBox(prefix);
+}
+function ybReset(prefix){
+  delete document.getElementById(prefix + 'YearHint').dataset.src;
+  document.getElementById(prefix + 'YearBuilt').dataset.auto = '';
+}
+function ybWatch(prefix, inputId){
+  const el = document.getElementById(inputId);
+  if(el.dataset.ybOn) return;
+  el.dataset.ybOn = '1';
+  el.addEventListener('change', () => ybAuto(prefix));
+}
+
+/* Fills the year from the address the form shows now. Never replaces a
+   year someone typed; does replace one it filled itself for a previous
+   address, since that one is now about the wrong house. */
+async function ybAuto(prefix){
+  const addrEl = document.getElementById(prefix === 'jd' ? 'jdAddr' : 'njAddress');
+  const yEl = document.getElementById(prefix + 'YearBuilt');
+  const hint = document.getElementById(prefix + 'YearHint');
+  const addr = addrEl.value.trim();
+  if(!addr || coordsFromText(addr)) return;
+  if(yEl.value.trim() && !yEl.dataset.auto) return;
+  if(yEl.dataset.auto === addr) return;
+  const job = currentJob;
+  hint.dataset.src = 'Looking up the year built…'; yearBuiltHint(prefix);
+  const year = await ybLookup(addr);
+  if(addrEl.value.trim() !== addr || (prefix === 'jd' && currentJob !== job)) return;   // moved on meanwhile
+  if(yEl.value.trim() && !yEl.dataset.auto){ ybReset(prefix); yearBuiltHint(prefix); return; }
+  if(year){
+    yEl.value = year; yEl.dataset.auto = addr;
+    hint.dataset.src = 'From the Maricopa County Assessor record.' + (prefix === 'jd' ? ' Tap Save job to keep it.' : '');
+  } else {
+    if(yEl.dataset.auto){ yEl.value = ''; yEl.dataset.auto = ''; }
+    hint.dataset.src = year === null ? 'Couldn’t reach the county record. Type the year in.'
+                                     : 'The county record has no year for this address. Type it in.';
+  }
+  yearBuiltHint(prefix);
+  renderAsbBox(prefix);
+}
+
+/* A job opened with an address on file and no year: looked up and saved
+   straight away, so it's there next time without anyone tapping Save. */
+async function ybLookupSaved(name, addr){
+  const year = await ybLookup(addr);
+  if(!year) return;
+  const w = ensureRecord(name);
+  if(w.yearBuilt) return;
+  w.yearBuilt = year;
+  asbAutoFlag(w);
+  w.updated = new Date().toISOString();
+  if(currentJob === name && !document.getElementById('jdYearBuilt').value.trim()){
+    document.getElementById('jdYearBuilt').value = year;
+    const hint = document.getElementById('jdYearHint');
+    hint.dataset.src = 'From the Maricopa County Assessor record.';
+    yearBuiltHint('jd');
+    renderAsbBox('jd');
+    renderChecklist();
+  }
+  ckQueueSave();
+}
+
+/* Pre-1985 and nobody has answered the asbestos question yet: flag it as
+   Needed. An answer someone already gave (even No) is left alone. */
+function asbAutoFlag(w){
+  const y = +w.yearBuilt;
+  if(!y || y >= ASB_CUTOFF) return;
+  w.checklist = w.checklist || {};
+  if(w.checklist.asbestos && w.checklist.asbestos.a) return;
+  w.checklist.asbestos = { a:'yes', s:'needed', t: new Date().toISOString() };
+}
+
+function asbState(prefix){
+  if(prefix === 'nj') return njAsb;
+  const j = allJobs().find(x => x.name === currentJob) || {};
+  const s = ckSid(j, 'asbestos');
+  return { done: ['sampled', 'clear', 'positive'].includes(s), result: ['clear', 'positive'].includes(s) ? s : '' };
+}
+
+function renderAsbBox(prefix){
+  const box = document.getElementById(prefix + 'AsbBox');
+  if(!box) return;
+  const y = +cleanYearBuilt(document.getElementById(prefix + 'YearBuilt').value);
+  const st = asbState(prefix);
+  const old = y && y < ASB_CUTOFF;
+  if(!old && !st.done){ box.innerHTML = ''; box.className = ''; return; }
+  box.className = 'asb-box';
+  box.innerHTML = `
+    ${old ? `<div class="asb-flag">&#9888; Built in ${y}, before ${ASB_CUTOFF}: flagged for asbestos</div>` : ''}
+    <label class="asb-check"><input type="checkbox" ${st.done ? 'checked' : ''} onchange="asbSetDone('${prefix}', this.checked)"> Has testing been done?</label>
+    ${st.done ? `<div class="asb-q">Result</div>
+      <div class="chip-row">
+        <div class="chip asb-neg ${st.result === 'clear' ? 'active' : ''}" onclick="asbSetResult('${prefix}','clear')">Negative</div>
+        <div class="chip asb-pos ${st.result === 'positive' ? 'active' : ''}" onclick="asbSetResult('${prefix}','positive')">Positive (hot)</div>
+      </div>` : ''}`;
+}
+
+/* In a job these save at once, like the Checklist they belong to. In
+   New Job they wait for Create job. */
+function asbSetDone(prefix, on){
+  if(prefix === 'nj'){ njAsb.done = on; if(!on) njAsb.result = ''; }
+  else {
+    const cur = asbState('jd');
+    ckStatus('asbestos', on ? (cur.result || 'sampled') : 'needed');
+  }
+  renderAsbBox(prefix);
+}
+function asbSetResult(prefix, r){
+  if(prefix === 'nj') njAsb.result = njAsb.result === r ? '' : r;
+  else ckStatus('asbestos', asbState('jd').result === r ? 'sampled' : r);   // tapping it again takes it back
+  renderAsbBox(prefix);
+}
+function asbFromNewJob(w){
+  if(njAsb.done){
+    w.checklist = w.checklist || {};
+    w.checklist.asbestos = { a:'yes', s: njAsb.result || 'sampled', t: new Date().toISOString() };
+  } else asbAutoFlag(w);
+}
+/* END ASBESTOS FLAG (JS) */
+
 
 /* Creates the Whiteboard half of a job if it doesn't exist yet. The
    tracker's half is never touched. */
@@ -2964,6 +3196,7 @@ async function saveJob(){
   w.waterCat = readWaterCat('jd');   // WATER CATEGORY
   w.lossDate = document.getElementById('jdLossDate').value;
   w.yearBuilt = cleanYearBuilt(document.getElementById('jdYearBuilt').value);   // YEAR BUILT
+  asbAutoFlag(w);                                                                // ASBESTOS FLAG
   w.tech     = document.getElementById('jdTech').value;
   w.notes    = document.getElementById('jdNotes').value.trim();
   w.updated  = new Date().toISOString();
@@ -3026,6 +3259,8 @@ function openNewJob(){
   document.getElementById('njWaterCat').innerHTML = waterCatOptions('');       // WATER CATEGORY
   syncWaterCat('nj');                                                          // WATER CATEGORY
   attachAddressSuggest('njAddress');
+  ybWatch('nj', 'njAddress');                   // ASBESTOS FLAG
+  njAsb = { done:false, result:'' }; ybReset('nj'); yearBuiltHint('nj'); renderAsbBox('nj');
   openModal('modalNewJob');
 }
 async function createJob(){
@@ -3047,6 +3282,7 @@ async function createJob(){
   w.stage = 'new';
   /* SCREENSHOT IMPORT: whatever made it into the extra fields. */
   Object.entries(njExtras()).forEach(([k, v]) => { if(v) w[k] = v; });
+  asbFromNewJob(w);   // ASBESTOS FLAG
 
   await saveClientsSafe();   // SAVE GUARD
   const ok = await saveWhiteboard();
@@ -4135,6 +4371,8 @@ function njApplyImport(reads){
     if(add.length){ el.value = (have ? have + '\n' : '') + add.join('\n'); el.classList.add('imp-filled'); filled.push('notes'); }
   }
   if(filled.some(k => !['name', 'address', 'loss', 'waterCat'].includes(k))) njMore(true);
+  yearBuiltHint('nj'); renderAsbBox('nj');                                    // ASBESTOS FLAG
+  if(filled.includes('address')) ybAuto('nj');                                // ASBESTOS FLAG
 
   /* Already a customer? Match by name, or by address written either way. */
   const name = document.getElementById('njName').value.trim().toLowerCase();
@@ -4353,10 +4591,10 @@ function ageClass(d){ return d >= CHECK_CFG.STALE_DAYS * 2 ? 'old' : d >= CHECK_
 
 /* What the job's own details already say. Shown as a suggestion; it
    never answers the question by itself. The cut-offs are the commonly
-   used ones (asbestos before 1980, lead paint before 1978). */
+   used ones (asbestos before 1985, the company rule; lead paint before 1978). */
 function checkSuggest(j, id){
   const y = +j.yearBuilt;
-  if(id === 'asbestos' && y && y < 1980) return `built ${y}`;
+  if(id === 'asbestos' && y && y < ASB_CUTOFF) return `built ${y}`;
   if(id === 'lead' && y && y < 1978) return `built ${y}`;
   return '';
 }
@@ -4453,6 +4691,7 @@ function ckEntry(id){
 function ckChanged(w){
   w.updated = new Date().toISOString();
   renderChecklist();
+  renderAsbBox('jd');   // ASBESTOS FLAG: the same answer, shown under Year built
   ckQueueSave();
 }
 
@@ -6192,7 +6431,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-16c';
+const WB_BUILD = '2026-11-16d';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
