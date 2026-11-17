@@ -437,6 +437,19 @@ nav.bottom .navbtn.scanbtn{color:var(--cyan-dark);}
 }
 .sheet::-webkit-scrollbar-thumb:hover{background:var(--gray);background-clip:content-box;}
 .sheet{scrollbar-width:thin;scrollbar-color:var(--line) transparent;}
+/* STICKY SAVE: the main button stays at the bottom of the sheet while the
+   rest scrolls under it. Negative bottom margin and offset cancel the
+   sheet's own 24px bottom padding, so it sits flush with the edge. */
+.sheet-save{
+  position:sticky;bottom:-24px;z-index:5;
+  margin:16px -18px -24px;
+  padding:10px 18px calc(12px + 24px + env(safe-area-inset-bottom, 0px));
+  background:inherit;border-top:1px solid var(--line);
+  box-shadow:0 -6px 14px rgba(10,20,30,.06);
+}
+.sheet-save .btn{width:100%;}
+/* Navy on the dark sheet nearly vanished; cyan reads at a glance. */
+[data-theme="dark"] .sheet-save .btn-primary{background:var(--cyan);border-color:var(--cyan);color:#04202A;}
 @keyframes slideup{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 /* The grab bar. The visible line is 4px, which no thumb can hit, so the
    element itself is a 34px-tall strip with the line centred inside it.
@@ -1757,13 +1770,15 @@ details.hsec{scroll-margin-top:8px;}
   <div class="section-title">Notes</div>
   <div class="field"><textarea id="jdNotes" rows="3" placeholder="Anything the next person needs to know"></textarea></div>
 
-  <div class="btn-row"><button class="btn btn-primary" onclick="saveJob()">Save job</button></div>
-  <!-- SHARED JOBS: changes the job in both apps at once. -->
-  <div class="btn-row" style="margin-top:10px;">
+  <!-- SHARED JOBS: changes the job in both apps at once. At the end of
+       the scroll, just above the pinned Save. -->
+  <div class="btn-row" style="margin-top:18px;">
     <button class="btn btn-ghost" onclick="renameJob()">Rename job</button>
     <button class="btn btn-ghost" style="color:var(--red);" onclick="deleteJob()">Delete job</button>
   </div>
   <div class="hint" style="margin-top:6px;">Rename and Delete change the job in the Whiteboard and the Equipment Tracker together.</div>
+  <!-- STICKY SAVE: stays on screen at the bottom while the job scrolls. -->
+  <div class="sheet-save"><button class="btn btn-primary" onclick="saveJob()">Save job</button></div>
 </div></div>
 
 <!-- ========================= NEW JOB ========================= -->
@@ -1804,8 +1819,9 @@ details.hsec{scroll-margin-top:8px;}
     <div class="field"><label>Year built</label><input id="njYearBuilt" inputmode="numeric" maxlength="4" placeholder="e.g. 1978"></div>
     <div class="field"><label>Notes</label><textarea id="njNotes" rows="4"></textarea></div>
   </div>
-  <div class="btn-row"><button class="btn btn-primary" onclick="createJob()">Create job</button></div>
   <div class="hint">The customer is shared with the Equipment Tracker, so equipment can be checked out to this job straight away.</div>
+  <!-- STICKY SAVE -->
+  <div class="sheet-save"><button class="btn btn-primary" onclick="createJob()">Create job</button></div>
 </div></div>
 
 <!-- ========================= ACCESS CODES ========================= -->
@@ -2419,7 +2435,15 @@ function showToast(msg){
 }
 
 function openModal(id){
-  document.getElementById(id).classList.add('active');
+  const ov = document.getElementById(id);
+  /* START AT THE TOP: a sheet keeps its scroll position while hidden, so
+     a job used to reopen wherever the last one was left. Not when it's
+     already open (a redraw shouldn't jump). */
+  if(!ov.classList.contains('active')){
+    const sh = ov.querySelector('.sheet');
+    if(sh){ sh.scrollTop = 0; requestAnimationFrame(() => { sh.scrollTop = 0; }); }
+  }
+  ov.classList.add('active');
   document.body.classList.add('modal-open');   // also parks the map canvas
 }
 
@@ -6167,7 +6191,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-13c';
+const WB_BUILD = '2026-11-16a';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
