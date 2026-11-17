@@ -854,7 +854,7 @@ html.ua-crios .sheet{max-height:88svh;}
 /* ===== BEGIN PIN COLOURS (CSS), added 2026-11-07 =====
    Equipment on site: amber (the base .map-pin colour above).
    No equipment, by stage: New green, Mitigation light blue, Demo violet,
-   Estimate black. Inspection, Drying and Complete neutral grey for now.
+   Estimate black. Abatement, Drying and Complete neutral grey for now.
    No tech assigned: a plain Voda-navy outer RING, not pulsing, so the
    stage colour still shows inside it.
    Change a colour here and the legend under the map follows (it uses
@@ -863,7 +863,7 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.st-mitigation{background:#6EC1FF;color:#04202A;box-shadow:0 0 0 2px rgba(110,193,255,.35),0 0 12px rgba(110,193,255,.7);}
 .map-pin.st-demo{background:#8B5CF6;color:#fff;box-shadow:0 0 0 2px rgba(139,92,246,.35),0 0 12px rgba(139,92,246,.7);}
 .map-pin.st-estimate{background:#111418;color:#fff;border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 10px rgba(255,255,255,.45);}
-.map-pin.st-inspection,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
+.map-pin.st-abatement,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
 /* HOT JOBS: asbestos or lead positive. Listed with the extra classes so
    it also wins over the equipment and unassigned rules. */
 .map-pin.is-hot, .map-pin.is-hot.has-overdue{background:#E11D48;color:#fff;border-color:#fff;}
@@ -888,7 +888,7 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.map-pin.st-mitigation{border-color:#6EC1FF;}
 .map-pin.map-pin.st-demo{border-color:#8B5CF6;}
 .map-pin.map-pin.st-estimate{border-color:#111418;}
-.map-pin.map-pin.st-inspection,.map-pin.map-pin.st-drying,.map-pin.map-pin.st-complete{border-color:#9AA5B1;}
+.map-pin.map-pin.st-abatement,.map-pin.map-pin.st-drying,.map-pin.map-pin.st-complete{border-color:#9AA5B1;}
 .map-pin.map-pin.is-hot{border-color:#E11D48;}
 /* Class written twice on purpose: an older rule makes every pin edge
    white in light mode (html:not([data-theme="dark"]) .map-pin), and it
@@ -1609,18 +1609,17 @@ details.hsec{scroll-margin-top:8px;}
         <span><i class="map-pin is-away"></i>Client not available</span>
         <span><i class="map-pin is-hot"></i>Hot (asbestos or lead positive)</span>
         <span style="color:var(--muted);">Number inside = days the equipment has been on site. Its ring:</span>
-        <span><i class="map-pin st-inspection day-1"></i>Day 1</span>
-        <span><i class="map-pin st-inspection day-2"></i>Day 2</span>
-        <span><i class="map-pin st-inspection day-3"></i>Days 3 &ndash; 4</span>
-        <span><i class="map-pin st-inspection day-5"></i>Day 5 (the demo deadline)</span>
-        <span><i class="map-pin st-inspection day-5"></i>After day 5: red and pulsing</span>
+        <span><i class="map-pin st-drying day-1"></i>Day 1</span>
+        <span><i class="map-pin st-drying day-2"></i>Day 2</span>
+        <span><i class="map-pin st-drying day-3"></i>Days 3 &ndash; 4</span>
+        <span><i class="map-pin st-drying day-5"></i>Day 5 (the demo deadline)</span>
+        <span><i class="map-pin st-drying day-5"></i>After day 5: red and pulsing</span>
         <span style="color:var(--muted);margin-top:4px;">Inside colour = the job:</span>
         <span><i class="map-pin st-new"></i>New</span>
         <span><i class="map-pin st-mitigation"></i>Mitigation</span>
         <span><i class="map-pin st-demo"></i>Demo</span>
         <span><i class="map-pin st-estimate"></i>Estimate</span>
-        <span><i class="map-pin st-inspection"></i>Inspection</span>
-        <span><i class="map-pin st-drying"></i>Other (Drying, Complete)</span>
+        <span><i class="map-pin st-drying"></i>Other (Drying, Abatement, Complete)</span>
         <span><i class="map-pin has-overdue"></i>No technician assigned</span>
       </div>
     </details>
@@ -1973,10 +1972,10 @@ const MAP_CFG = {
    the order used to decide what "next" means. */
 const STAGES = [
   { id:'new',        label:'New',        color:'var(--gray)' },
-  { id:'inspection', label:'Inspection', color:'var(--blue)' },
   { id:'mitigation', label:'Mitigation', color:'var(--cyan-dark)' },
   { id:'drying',     label:'Drying',     color:'var(--amber)' },
   { id:'demo',       label:'Demo',       color:'#C2410C' },
+  { id:'abatement',  label:'Abatement',  color:'#0F766E' },
   { id:'estimate',   label:'Estimate',   color:'#7C3AED' },
   { id:'complete',   label:'Complete',   color:'var(--green)' }
 ];
@@ -2052,7 +2051,8 @@ function allJobs(){
       name,
       address: c.address || '',
       ...w,
-      stage: w.stage || (items.length ? 'mitigation' : 'new'),
+      /* Inspection was retired; jobs still saved with it read as New so they stay on the Board. */
+      stage: (w.stage === 'inspection' ? 'new' : w.stage) || (items.length ? 'mitigation' : 'new'),
       equipCount: items.length,
       /* DRYING DAYS: the earliest checkout among what's on site now, so
          adding a unit on day 3 doesn't restart the count. */
@@ -6192,7 +6192,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-16b';
+const WB_BUILD = '2026-11-16c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
