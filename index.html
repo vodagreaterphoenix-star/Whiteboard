@@ -2420,20 +2420,473 @@ function renderTeam(){
 
 
 /* ---- Google Sheets backend calls — identical to the tracker's ---- */
-async function apiGetAll(){
-  const res = await fetch(`${CONFIG.API_URL}?action=getAll`);
-  if(!res.ok) throw new Error('network');
-  return res.json();
+/* =====================================================================
+ * BEGIN LOW-SIGNAL SYNC (JS), added 2026-11-16
+ * The same block is in both apps; keep the two copies identical.
+ *
+ * Built for one bar of signal on a job site:
+ *  - A copy of the Sheet is kept on the phone. A refresh sends a short
+ *    checksum per tab; when nothing changed, a few bytes come back.
+ *    When something did, only the changed records come down.
+ *  - Whole-list saves (equipment, history, settings...) go up as "keep
+ *    records 0 to 4998, add this one in front", not the whole list.
+ *  - A save that can't get through is kept on the phone and sent when
+ *    signal returns, oldest first. Each save carries an id, so one the
+ *    backend already applied (the answer was what got lost) isn't
+ *    applied twice.
+ *  - If someone else changed a list in the meantime, this phone's
+ *    changes are merged onto theirs record by record instead of
+ *    replacing them.
+ * Opening the app with no signal shows the last copy on the phone.
+ *
+ * Needs the 2026-11-16 Code.gs (sync, syncRows, savePatch). On an older
+ * backend it falls back to the old full download and full saves.
+ * Both apps live on the same site, so they share the phone copy and the
+ * waiting saves: whichever app gets signal first sends them.
+ * ===================================================================== */
+const SYNC_STORE_KEY  = 'voda-sync-v1';
+const SYNC_OUTBOX_KEY = 'voda-outbox-v1';
+const SYNC_TABS = ['inventory','activity','personnel','locations','clients','settings','geocache','consumables','whiteboard','runs'];
+/* Saves that replace a whole list: sent as a patch. */
+const SYNC_WHOLE = { saveInventory:'inventory', saveActivity:'activity', savePersonnel:'personnel', saveLocations:'locations',
+                     saveSettings:'settings', saveGeocache:'geocache', saveConsumables:'consumables' };
+/* Saves merged by job name on the backend: safe to send late, and
+   several waiting ones fold into one. */
+const SYNC_MERGE = { mergeWhiteboard:'whiteboard', saveWhiteboard:'whiteboard', mergeClients:'clients', saveClientInfo:'clients' };
+/* Sent late in order, never folded together (each is an instruction). */
+const SYNC_ORDERED = { applyConsumables:1 };
+/* What makes a record the same record, for merging two people's changes. */
+const SYNC_KEY_OF = {
+  inventory:   r => r && r.id,
+  activity:    r => r && [r.ts, r.action, r.id, r.extra].join('|'),
+  personnel:   r => typeof r === 'string' ? r : r && (r.name || r.id),
+  locations:   r => typeof r === 'string' ? r : r && r.name,
+  settings:    r => r && r.key,
+  geocache:    r => r && r.address,
+  consumables: r => r && (r.id || r.name)
+};
+const SYNC_NEWEST_FIRST = { activity: 5000 };   // new history goes on top; the Tracker keeps 5000
+const SYNC_TIMEOUT_MS = 30000;
+const SYNC_RECHECK_OLD_MS = 10 * 60000;          // how often to see if Code.gs has been updated
+
+/* KEEP IN STEP with syncCanon / syncHash in Code.gs. */
+function syncCanon(v){
+  if(v === null || v === undefined) return 'null';
+  if(typeof v.toJSON === 'function') v = v.toJSON();
+  if(Array.isArray(v)) return '[' + v.map(x => x === undefined || typeof x === 'function' ? 'null' : syncCanon(x)).join(',') + ']';
+  if(typeof v === 'object'){
+    return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined && typeof v[k] !== 'function')
+      .map(k => JSON.stringify(k) + ':' + syncCanon(v[k])).join(',') + '}';
+  }
+  return JSON.stringify(v);
 }
-async function apiPost(action, data){
-  const res = await fetch(CONFIG.API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight
-    body: JSON.stringify({ action, data })
+function syncHash(str){
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i = 0; i < str.length; i++){
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+const syncRowHash = r => syncHash(syncCanon(r));
+const syncSum = hashes => hashes.length + '.' + syncHash(hashes.join(','));
+const syncClone = v => JSON.parse(JSON.stringify(v));
+const syncId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+/* ---- the copy on the phone ---- */
+let syncStore = null;          // { apiVersion, tabs:{ key:{ sum, rows } } }
+const syncHashMem = {};        // key -> fingerprints of the stored rows (worked out, not stored)
+let syncOldBackendAt = 0;      // when the backend last said it doesn't know 'sync'
+let syncFirstLoadDone = false;
+
+function syncLoadStore(){
+  if(syncStore) return syncStore;
+  try{ syncStore = JSON.parse(localStorage.getItem(SYNC_STORE_KEY) || 'null'); }catch(e){}
+  if(!syncStore || typeof syncStore.tabs !== 'object') syncStore = { tabs:{} };
+  return syncStore;
+}
+function syncPersist(){
+  try{ localStorage.setItem(SYNC_STORE_KEY, JSON.stringify(syncStore)); }
+  catch(e){ try{ localStorage.removeItem(SYNC_STORE_KEY); }catch(_){} }   // phone storage full: keep it in memory only
+}
+function syncHashesOf(key){
+  const t = syncStore.tabs[key];
+  if(!t) return null;
+  if(!syncHashMem[key] || syncHashMem[key].sum !== t.sum) syncHashMem[key] = { sum: t.sum, hashes: t.rows.map(syncRowHash) };
+  return syncHashMem[key].hashes;
+}
+/* A copy only goes in if it checks out against the backend's checksum;
+   otherwise it's dropped and the next refresh downloads that tab whole. */
+function syncSetTab(key, rows, sum){
+  const hashes = rows.map(syncRowHash);
+  if(sum && syncSum(hashes) !== sum){ delete syncStore.tabs[key]; delete syncHashMem[key]; return false; }
+  syncStore.tabs[key] = { sum: syncSum(hashes), rows };
+  syncHashMem[key] = { sum: syncStore.tabs[key].sum, hashes };
+  return true;
+}
+
+/* ---- waiting saves ---- */
+function syncOutbox(){ try{ return JSON.parse(localStorage.getItem(SYNC_OUTBOX_KEY) || '[]'); }catch(e){ return []; } }
+function syncOutboxSave(q){
+  try{ if(q.length) localStorage.setItem(SYNC_OUTBOX_KEY, JSON.stringify(q)); else localStorage.removeItem(SYNC_OUTBOX_KEY); return true; }
+  catch(e){ return false; }
+}
+function syncPendingCount(){ return syncOutbox().length; }
+
+function syncNetError(){ const e = new Error('No connection'); e.syncNet = true; return e; }
+async function syncFetch(body, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || SYNC_TIMEOUT_MS);
+  let res;
+  try{
+    res = await fetch(CONFIG.API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // avoids a CORS preflight on Apps Script
+      body: JSON.stringify(body),
+      signal: ctl.signal
+    });
+  }catch(e){ throw syncNetError(); }
+  finally{ clearTimeout(t); }
+  if(!res.ok) throw syncNetError();
+  try{ return await res.json(); }catch(e){ throw syncNetError(); }   // a cut-off answer or a Wi-Fi sign-in page
+}
+
+/* ---- downloading ---- */
+
+/* true when the copy is up to date, false when the backend is too old
+   to sync (the caller falls back to getAll). Throws on no signal. */
+async function syncPull(retry){
+  syncLoadStore();
+  const have = {};
+  SYNC_TABS.forEach(k => { const t = syncStore.tabs[k]; have[k] = t ? t.sum : ''; });
+  const r = await syncFetch({ action:'sync', data:{ have } });
+  if(!r || r.error){
+    if(/unknown action/i.test((r && r.error) || '')){ syncOldBackendAt = Date.now(); return false; }
+    throw new Error((r && r.error) || 'Sync failed');
+  }
+  /* Anything that isn't a sync answer means a backend that doesn't do sync. */
+  if(r.sync !== 1 || typeof r.tabs !== 'object'){ syncOldBackendAt = Date.now(); return false; }
+  syncOldBackendAt = 0;
+  syncStore.apiVersion = r.apiVersion;
+  const tabs = r.tabs || {};
+  const want = {}, lists = {};
+  Object.keys(tabs).forEach(key => {
+    const t = tabs[key];
+    if(t.rows){ syncSetTab(key, t.rows, t.sum); return; }
+    const mine = new Set(syncHashesOf(key) || []);
+    const need = [...new Set(t.hashes.filter(h => !mine.has(h)))];
+    lists[key] = t;
+    if(need.length) want[key] = need;
   });
-  if(!res.ok) throw new Error('network');
-  return res.json();
+  let got = {};
+  if(Object.keys(want).length){
+    const rr = await syncFetch({ action:'syncRows', data:{ want } });
+    if(!rr || rr.error) throw new Error((rr && rr.error) || 'Sync failed');
+    got = rr.tabs || {};
+  }
+  let missed = false;
+  Object.keys(lists).forEach(key => {
+    const t = lists[key];
+    const byHash = {};
+    const old = syncStore.tabs[key], oldH = syncHashesOf(key) || [];
+    oldH.forEach((h, i) => { byHash[h] = old.rows[i]; });
+    const fresh = (got[key] && got[key].rows) || {};
+    Object.keys(fresh).forEach(h => { byHash[h] = fresh[h]; });
+    if(t.hashes.some(h => !(h in byHash))){ missed = true; delete syncStore.tabs[key]; return; }   // it changed again in between
+    if(!syncSetTab(key, syncClone(t.hashes.map(h => byHash[h])), t.sum)) missed = true;
+  });
+  if(missed && !retry) return syncPull(true);   // those tabs now come down whole
+  syncPersist();
+  return true;
 }
+
+/* What the app gets: the same shape getAll has always returned, as a
+   fresh copy the app is free to change. */
+function syncAssemble(withWaiting){
+  const d = { apiVersion: syncStore.apiVersion };
+  SYNC_TABS.forEach(k => { const t = syncStore.tabs[k]; d[k] = t ? syncClone(t.rows) : []; syncAppBase[k] = t; });
+  if(withWaiting){
+    /* Opened with no signal: show this phone's waiting saves on top. */
+    syncOutbox().forEach(e => {
+      if(e.kind === 'whole') d[e.key] = syncClone(e.data);
+      if(e.kind === 'merge'){
+        e.rows.forEach(r => {
+          const i = d[e.key].findIndex(x => x && x.name === r.name);
+          if(i < 0) d[e.key].push(syncClone(r)); else d[e.key][i] = syncClone(r);
+        });
+      }
+    });
+    d.fromPhone = true;
+  }
+  return d;
+}
+
+async function apiGetAll(){
+  syncLoadStore();
+  const oldBackend = syncOldBackendAt && Date.now() - syncOldBackendAt < SYNC_RECHECK_OLD_MS;
+  try{
+    await syncFlush(true);   // anything saved with no signal goes first
+    if(!oldBackend && await syncPull()){ syncFirstLoadDone = true; return syncAssemble(false); }
+    const res = await fetch(`${CONFIG.API_URL}?action=getAll`);
+    if(!res.ok) throw syncNetError();
+    syncFirstLoadDone = true;
+    return res.json();
+  }catch(e){
+    /* No signal at start-up: open on the phone's copy. After that a
+       failed refresh leaves the screen as it is (the app shows Offline). */
+    if(!syncFirstLoadDone && SYNC_TABS.every(k => syncStore.tabs[k])){
+      syncFirstLoadDone = true;
+      syncShowPending();
+      return syncAssemble(true);
+    }
+    throw e;
+  }
+}
+
+/* ---- saving ---- */
+
+async function apiPost(action, data){
+  syncLoadStore();
+  const opId = syncId();
+  if(SYNC_WHOLE[action]) return syncSaveWhole(action, SYNC_WHOLE[action], data, opId);
+  const late = SYNC_MERGE[action] || SYNC_ORDERED[action];
+  /* Something already waiting: this one waits behind it, so they arrive in order. */
+  if(late && syncOutbox().length && syncEnqueue(action, data, opId)){ syncFlushSoon(); return { ok:true, queued:true }; }
+  try{
+    return await syncFetch({ action, data, opId }, action === 'ocr' ? 90000 : 0);
+  }catch(e){
+    if(e.syncNet && late && syncEnqueue(action, data, opId)) return { ok:true, queued:true };
+    throw e;
+  }
+}
+
+/* Records keyed for merging, with their fingerprints. null when the list
+   has no usable key (then there is no safe merge). */
+function syncKeyed(key, rows){
+  const kf = SYNC_KEY_OF[key];
+  if(!kf) return null;
+  const m = new Map();
+  for(const r of rows){
+    const k = kf(r);
+    if(k === undefined || k === null || k === '' || m.has(String(k))) return null;
+    m.set(String(k), r);
+  }
+  return m;
+}
+/* What a list looked like when the app's copy was taken: its checksum,
+   and each record's fingerprint by key (null when it has no usable key). */
+function syncBaseOf(key, t){
+  if(!t) return null;
+  const m = syncKeyed(key, t.rows);
+  let keys = null;
+  if(m){ keys = {}; m.forEach((r, k) => { keys[k] = syncRowHash(r); }); }
+  return { sum: t.sum, keys };
+}
+/* The copy each list was in when it was last handed to the app. A save
+   is the app's copy plus its edits, so this is what it's measured from,
+   even if the phone's copy has been refreshed since. */
+const syncAppBase = {};
+
+/* This phone's changes since `base` (key -> fingerprint), laid onto
+   `theirs`: edits replace their record, removals remove it, new records
+   go on top (history) or at the end. Their own changes are kept. */
+function syncMerge(key, theirs, mine, base){
+  const kf = SYNC_KEY_OF[key];
+  const mm = base && base.keys && syncKeyed(key, mine);
+  if(!mm) return null;
+  base = base.keys;
+  const changed = new Set(), removed = new Set();
+  mm.forEach((r, k) => { if(base[k] !== syncRowHash(r)) changed.add(k); });
+  Object.keys(base).forEach(k => { if(!mm.has(k)) removed.add(k); });
+  const out = [], placed = new Set();
+  for(const r of theirs){
+    const k = String(kf(r));
+    if(removed.has(k)) continue;
+    if(changed.has(k)){ if(!placed.has(k)){ out.push(mm.get(k)); placed.add(k); } continue; }
+    out.push(r);
+  }
+  const added = [...changed].filter(k => !placed.has(k)).map(k => mm.get(k));
+  const cap = SYNC_NEWEST_FIRST[key];
+  return cap ? added.concat(out).slice(0, cap) : out.concat(added);
+}
+
+/* The new list as runs of what the backend already has plus new records. */
+function syncOps(key, rows){
+  const old = syncHashesOf(key);
+  const at = new Map();
+  old.forEach((h, i) => { if(!at.has(h)) at.set(h, []); at.get(h).push(i); });
+  const ops = [];
+  let prev = -2;
+  rows.forEach(r => {
+    const h = syncRowHash(r);
+    let i = old[prev + 1] === h ? prev + 1 : (at.get(h) || [-1])[0];
+    if(i < 0){ ops.push({ r }); prev = -2; return; }
+    const last = ops[ops.length - 1];
+    if(Array.isArray(last) && i === prev + 1 && last[0] + last[1] === i) last[1]++;
+    else ops.push([i, 1]);
+    prev = i;
+  });
+  return ops;
+}
+
+/* Patch against the phone's copy; if the backend's list moved on, fetch
+   it, merge this phone's changes onto it and patch again. Falls back to
+   the old whole-list save only when there's no safe way to merge. */
+async function syncPatchSave(action, key, data, opId, base){
+  let mine = data, merged = false;
+  for(let tries = 0; tries < 3; tries++){
+    if(!syncStore.tabs[key] && !(await syncPull())) break;
+    const t = syncStore.tabs[key];
+    if(!t) break;
+    /* The phone's copy moved on since the app's copy was taken (a refresh
+       or another save brought in someone else's change): lay this save's
+       edits onto it rather than sending a list that would undo theirs. */
+    if(base && base.sum !== t.sum){
+      const next = syncMerge(key, t.rows, mine, base);
+      if(next){ mine = next; merged = true; }
+      base = syncBaseOf(key, t);
+    }
+    const r = await syncFetch({ action:'savePatch', data:{ key, base: t.sum, ops: syncOps(key, mine) }, opId: opId + '.' + tries });
+    if(r && r.ok){
+      syncSetTab(key, syncClone(mine), r.sum);
+      syncPersist();
+      if(merged) syncAppReload();                          // the app gets the merged list
+      else syncAppBase[key] = syncStore.tabs[key];         // the app's list is exactly what was saved
+      return { ok:true };
+    }
+    if(!(r && r.conflict)){
+      if(r && /unknown action/i.test(r.error || '')){ syncOldBackendAt = Date.now(); break; }
+      return r;
+    }
+    if(!(await syncPull()) || !syncStore.tabs[key]) break;
+    const next = syncMerge(key, syncStore.tabs[key].rows, mine, base);
+    if(!next) break;
+    mine = next; merged = true;
+    base = syncBaseOf(key, syncStore.tabs[key]);
+  }
+  const r = await syncFetch({ action, data: mine, opId });
+  if(merged && r && !r.error) syncAppReload();
+  return r;
+}
+
+async function syncSaveWhole(action, key, data, opId){
+  const waiting = syncOutbox().some(e => e.kind === 'whole' && e.key === key);
+  if(waiting && syncEnqueue(action, data, opId, key)){ syncFlushSoon(); return { ok:true, queued:true }; }
+  const usable = !(syncOldBackendAt && Date.now() - syncOldBackendAt < SYNC_RECHECK_OLD_MS) && syncStore.tabs[key];
+  const base = usable ? syncBaseOf(key, syncAppBase[key] || syncStore.tabs[key]) : null;
+  try{
+    if(usable) return await syncPatchSave(action, key, data, opId, base);
+    return await syncFetch({ action, data, opId });
+  }catch(e){
+    /* Only kept for later when there's a copy to merge against, so a
+       late save can never wipe out what others did meanwhile. */
+    if(e.syncNet && base && base.keys && syncEnqueue(action, data, opId, key, base)) return { ok:true, queued:true };
+    throw e;
+  }
+}
+
+/* Adds a waiting save, folding it into one of the same kind where that's
+   safe. A folded save gets a new id, since the old one may already have
+   reached the backend with less in it. */
+function syncEnqueue(action, data, opId, key, base){
+  const q = syncOutbox();
+  if(SYNC_WHOLE[action]){
+    const e = q.find(x => x.kind === 'whole' && x.key === key);
+    if(e){ e.data = syncClone(data); e.opId = opId; e.v = (e.v || 0) + 1; }
+    else{
+      if(!base) return false;
+      q.push({ kind:'whole', action, key, data: syncClone(data), base, opId, v:0 });
+    }
+  } else if(SYNC_MERGE[action]){
+    const k = SYNC_MERGE[action];
+    let e = q.find(x => x.kind === 'merge' && x.action === action);
+    if(!e){ e = { kind:'merge', action, key:k, rows:[], v:0 }; q.push(e); }
+    (data || []).forEach(r => {
+      const i = e.rows.findIndex(x => x.name === r.name);
+      if(i < 0) e.rows.push(syncClone(r)); else e.rows[i] = syncClone(r);
+    });
+    e.opId = opId; e.v++;
+  } else {
+    q.push({ kind:'post', action, data: syncClone(data), opId, v:0 });
+  }
+  if(!syncOutboxSave(q)) return false;
+  syncShowPending(true);
+  return true;
+}
+
+/* Sends the waiting saves oldest first. Stops at the first one that
+   can't get through and tries again later. A save folded into while it
+   was being sent stays in the queue and goes again with the extra. */
+let syncFlushing = null, syncFlushTimer = 0, syncFlushAgain = false;
+function syncFlush(quiet){
+  /* Asked again while one is running (signal just came back while the
+     last try was still timing out): run once more when it finishes. */
+  if(syncFlushing){ syncFlushAgain = true; return syncFlushing; }
+  /* Not `syncFlushing = (async...)()` with the reset inside: with nothing
+     waiting the body finishes before the assignment, and the finished
+     promise would then block every later flush. */
+  const run = (async () => {
+    await null;
+    let sent = 0;
+    try{
+      for(let guard = 0; guard < 50; guard++){
+        const q = syncOutbox();
+        if(!q.length) break;
+        const e = q[0];
+        let r;
+        if(e.kind === 'whole') r = await syncPatchSave(e.action, e.key, e.data, e.opId, e.base);
+        else r = await syncFetch({ action: e.action, data: e.kind === 'merge' ? e.rows : e.data, opId: e.opId });
+        const now = syncOutbox();
+        const i = now.findIndex(x => x.opId === e.opId && x.v === e.v);
+        if(r && r.error){
+          /* The backend refused it (not a signal problem). Five refusals
+             and it's dropped, so one bad save can't block the rest. */
+          const j = now.findIndex(x => x.opId === e.opId);
+          if(j >= 0){ now[j].fails = (now[j].fails || 0) + 1; if(now[j].fails >= 5) now.splice(j, 1); syncOutboxSave(now); }
+          if(typeof showToast === 'function') showToast('A save made with no signal was refused: ' + r.error);
+          break;
+        }
+        if(i >= 0){ now.splice(i, 1); syncOutboxSave(now); }
+        sent++;
+      }
+    }catch(err){ /* still no signal: leave them waiting */ }
+    syncShowPending();
+    if(sent && !quiet) syncAppReload();
+    return sent;
+  })();
+  syncFlushing = run;
+  run.then(() => {
+    if(syncFlushing === run) syncFlushing = null;
+    if(syncFlushAgain){ syncFlushAgain = false; if(syncPendingCount()) setTimeout(() => syncFlush(quiet), 500); }
+  });
+  return run;
+}
+function syncFlushSoon(){ clearTimeout(syncFlushTimer); syncFlushTimer = setTimeout(() => syncFlush(false), 400); }
+
+function syncAppReload(){ if(typeof loadData === 'function') setTimeout(() => loadData(true), 0); }
+
+/* The status pill says how many saves are waiting for signal, after the
+   app has had its say ("Synced" would be wrong while they wait). */
+let syncToldOnce = false;
+function syncShowPending(justQueued){
+  setTimeout(() => {
+    const n = syncPendingCount();
+    const lbl = document.getElementById('syncLabel');
+    if(n && lbl) lbl.textContent = n === 1 ? '1 save waiting for signal' : `${n} saves waiting for signal`;
+    if(n && justQueued && !syncToldOnce && typeof showToast === 'function'){
+      syncToldOnce = true;
+      showToast('No signal: saved on this phone. It sends itself when signal comes back.');
+    }
+  }, 0);
+}
+
+window.addEventListener('online', () => syncFlush(false));
+setInterval(() => { if(syncPendingCount() && !syncFlushing) syncFlush(false); }, 30000);
+/* END LOW-SIGNAL SYNC (JS) */
+
 const SHEET_CLOSE_MS = 190;
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -2490,15 +2943,7 @@ function setSyncing(on, failed){
   else { dot.classList.remove('saving'); lbl.textContent='Synced'; }
 }
 
-async function apiPost(action, data){
-  const res = await fetch(CONFIG.API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight on Apps Script
-    body: JSON.stringify({ action, data })
-  });
-  if(!res.ok) throw new Error('network');
-  return res.json();
-}
+/* apiPost lives in LOW-SIGNAL SYNC. */
 
 function mapNorm(a){ return (a||'').trim().toLowerCase().replace(/\s+/g,' '); }
 
@@ -6468,7 +6913,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-16e';
+const WB_BUILD = '2026-11-16f';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
