@@ -854,7 +854,7 @@ html.ua-crios .sheet{max-height:88svh;}
 /* ===== BEGIN PIN COLOURS (CSS), added 2026-11-07 =====
    Equipment on site: amber (the base .map-pin colour above).
    No equipment, by stage: New green, Mitigation light blue, Demo violet,
-   Estimate black. Abatement, Drying and Complete neutral grey for now.
+   Estimate black. Approvals, Abatement, Drying and Complete neutral grey for now.
    No tech assigned: a plain Voda-navy outer RING, not pulsing, so the
    stage colour still shows inside it.
    Change a colour here and the legend under the map follows (it uses
@@ -863,7 +863,7 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.st-mitigation{background:#6EC1FF;color:#04202A;box-shadow:0 0 0 2px rgba(110,193,255,.35),0 0 12px rgba(110,193,255,.7);}
 .map-pin.st-demo{background:#8B5CF6;color:#fff;box-shadow:0 0 0 2px rgba(139,92,246,.35),0 0 12px rgba(139,92,246,.7);}
 .map-pin.st-estimate{background:#111418;color:#fff;border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 0 10px rgba(255,255,255,.45);}
-.map-pin.st-abatement,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
+.map-pin.st-approvals,.map-pin.st-abatement,.map-pin.st-drying,.map-pin.st-complete{background:#9AA5B1;color:#101010;box-shadow:0 0 0 2px rgba(154,165,177,.35),0 0 10px rgba(154,165,177,.6);}
 /* HOT JOBS: asbestos or lead positive. Listed with the extra classes so
    it also wins over the equipment and unassigned rules. */
 .map-pin.is-hot, .map-pin.is-hot.has-overdue{background:#E11D48;color:#fff;border-color:#fff;}
@@ -888,7 +888,7 @@ html.ua-crios .sheet{max-height:88svh;}
 .map-pin.map-pin.st-mitigation{border-color:#6EC1FF;}
 .map-pin.map-pin.st-demo{border-color:#8B5CF6;}
 .map-pin.map-pin.st-estimate{border-color:#111418;}
-.map-pin.map-pin.st-abatement,.map-pin.map-pin.st-drying,.map-pin.map-pin.st-complete{border-color:#9AA5B1;}
+.map-pin.map-pin.st-approvals,.map-pin.map-pin.st-abatement,.map-pin.map-pin.st-drying,.map-pin.map-pin.st-complete{border-color:#9AA5B1;}
 .map-pin.map-pin.is-hot{border-color:#E11D48;}
 /* Class written twice on purpose: an older rule makes every pin edge
    white in light mode (html:not([data-theme="dark"]) .map-pin), and it
@@ -1654,7 +1654,7 @@ details.hsec{scroll-margin-top:8px;}
         <span><i class="map-pin st-mitigation"></i>Mitigation</span>
         <span><i class="map-pin st-demo"></i>Demo</span>
         <span><i class="map-pin st-estimate"></i>Estimate</span>
-        <span><i class="map-pin st-drying"></i>Other (Drying, Abatement, Complete)</span>
+        <span><i class="map-pin st-drying"></i>Other (Drying, Approvals, Abatement, Complete)</span>
         <span><i class="map-pin has-overdue"></i>No technician assigned</span>
       </div>
     </details>
@@ -1789,8 +1789,10 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field" id="jdWaterCatField" style="display:none;"><label>Water category</label><select id="jdWaterCat"></select></div>   <!-- WATER CATEGORY -->
   <div class="field"><label>Date of loss</label><input id="jdLossDate" type="date"></div>
   <!-- BEGIN YEAR BUILT. Touch points outside this block: openJob (fill), saveJob (save). -->
+  <div id="jdYearWrap">   <!-- hidden when the year is known and 1985 or later (ybShowField) -->
   <div class="field"><label>Year built</label><input id="jdYearBuilt" type="text" inputmode="numeric" maxlength="4" placeholder="e.g. 1978" oninput="ybTyped('jd')"></div>
   <div class="hint" id="jdYearHint" style="display:none;margin-top:-4px;"></div>
+  </div>
   <div id="jdAsbBox"></div>   <!-- ASBESTOS FLAG -->
   <!-- END YEAR BUILT -->
   <div class="field"><label>Carrier</label><input id="jdCarrier" placeholder="Insurance company" oninput="syncField('jdCarrier','jdEstCarrier')"></div>
@@ -1842,8 +1844,10 @@ details.hsec{scroll-margin-top:8px;}
   <div class="field"><label>Customer name</label><input id="njName" placeholder="e.g. Dorothy Morris"></div>
   <div class="field"><label>Address</label><input id="njAddress" placeholder="e.g. 1439 E Breezy Ct, Phoenix, AZ 85086"></div>
   <!-- ASBESTOS FLAG: Year built sits under the address so the county lookup lands where it's seen. -->
+  <div id="njYearWrap">
   <div class="field"><label>Year built</label><input id="njYearBuilt" inputmode="numeric" maxlength="4" placeholder="Filled in from the address" oninput="ybTyped('nj')"></div>
   <div class="hint" id="njYearHint" style="display:none;margin-top:-4px;"></div>
+  </div>
   <div id="njAsbBox"></div>
   <div class="field"><label>Type of loss</label><select id="njLoss" onchange="syncWaterCat('nj')"></select></div>
   <div class="field" id="njWaterCatField" style="display:none;"><label>Water category</label><select id="njWaterCat"></select></div>   <!-- WATER CATEGORY -->
@@ -2013,11 +2017,35 @@ const STAGES = [
   { id:'new',        label:'New',        color:'var(--gray)' },
   { id:'mitigation', label:'Mitigation', color:'var(--cyan-dark)' },
   { id:'drying',     label:'Drying',     color:'var(--amber)' },
+  { id:'approvals',  label:'Approvals',  color:'#0369A1' },
   { id:'demo',       label:'Demo',       color:'#C2410C' },
-  { id:'abatement',  label:'Abatement',  color:'#0F766E' },
-  { id:'estimate',   label:'Estimate',   color:'#7C3AED' },
-  { id:'complete',   label:'Complete',   color:'var(--green)' }
+  { id:'abatement',  label:'Abatement',  color:'#0F766E' },   // only offered on homes in the asbestos range (jobStages)
+  { id:'complete',   label:'Complete',   color:'var(--green)' },
+  /* Estimate comes last (2026-11-17): it's written once the work is done.
+     Only Complete is hidden from the Board, so Estimate jobs still show. */
+  { id:'estimate',   label:'Estimate',   color:'#7C3AED' }
 ];
+/* STAGE PICKER: Abatement is only offered on a job whose home is in the
+   asbestos range (built before 1985, the cut-off used for the asbestos
+   flag), or that already has asbestos on it: tested Positive, an
+   abatement loss type, or already sitting in Abatement. The year is read
+   from the form when it's open, so typing a year updates the choices. */
+function jobInAsbestosRange(j){
+  if(!j) return false;
+  if(j.stage === 'abatement' || j.loss === 'Asbestos Abatement') return true;
+  const live = currentJob === j.name && document.getElementById('jdYearBuilt');
+  const y = +cleanYearBuilt(live ? live.value : j.yearBuilt);
+  if(y && y < ASB_CUTOFF) return true;
+  const a = (j.checklist || {}).asbestos;
+  return !!(a && ['positive', 'abated'].includes(a.s));
+}
+function jobStages(j){ return STAGES.filter(s => s.id !== 'abatement' || jobInAsbestosRange(j)); }
+function renderJobStages(){
+  const j = allJobs().find(x => x.name === currentJob);
+  if(!j) return;
+  document.getElementById('jdStages').innerHTML = jobStages(j).map(s =>
+    `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
+}
 const LOSS_TYPES = ['Water Mitigation','Mold Remediation','Asbestos Abatement','Fire / Smoke','Biohazard','Other'];
 /* ASBESTOS ABATEMENT: a job that is only abatement, with no water loss.
    Counts as hot from the start (see isHot). */
@@ -3313,8 +3341,7 @@ function openJob(name){
        ${j.phone ? `<a href="tel:${escapeHtml(j.phone.replace(/[^\d+]/g,''))}">Call</a>` : ''}`;
   } else nav.innerHTML = `<span class="hint" style="margin:0;">Add an address to get directions.</span>`;
 
-  document.getElementById('jdStages').innerHTML = STAGES.map(s =>
-    `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
+  renderJobStages();   // STAGE PICKER
   ckOpen = false;      // JOB CHECKLIST: always starts folded...
   renderChecklist();
   ckPulse(j);          // ...and pulses if anything still needs attention
@@ -3329,6 +3356,7 @@ function openJob(name){
   document.getElementById('jdYearBuilt').value = j.yearBuilt || '';   // YEAR BUILT
   ybReset('jd');                                                      // ASBESTOS FLAG
   yearBuiltHint('jd');                                                // YEAR BUILT
+  ybShowField('jd', true);                                            // only shown when it may matter
   renderAsbBox('jd');                                                 // ASBESTOS FLAG
   if(!j.yearBuilt && j.address) ybLookupSaved(name, j.address);      // ASBESTOS FLAG
   document.getElementById('jdNotes').value    = j.notes   || '';
@@ -3371,9 +3399,7 @@ function setJobStage(id){
     if(warn && !confirm(warn)) return;
   }
   w.stage = id;
-  const j = allJobs().find(x => x.name === currentJob);
-  document.getElementById('jdStages').innerHTML = STAGES.map(s =>
-    `<div class="chip ${j.stage===s.id?'active':''}" onclick="setJobStage('${s.id}')">${s.label}</div>`).join('');
+  renderJobStages();   // STAGE PICKER
   renderEstimate();   // ESTIMATE: appears when the job reaches Estimate
 }
 
@@ -3515,8 +3541,21 @@ async function ybLookup(addr){
   return year;
 }
 
+/* YEAR BUILT ONLY WHEN IT MATTERS (2026-11-17): the field shows while the
+   year is unknown (so it can be typed in) or before 1985 (the home may
+   be hot for asbestos). A year that's on file or came from the county
+   and is 1985 or later hides it. One being typed by hand stays visible
+   until the form closes, so a typo can be fixed. */
+function ybShowField(prefix, known){
+  const wrap = document.getElementById(prefix + 'YearWrap');
+  if(!wrap) return;
+  const y = +cleanYearBuilt(document.getElementById(prefix + 'YearBuilt').value);
+  wrap.style.display = known && y && y >= ASB_CUTOFF ? 'none' : '';
+}
+
 /* Typing a year by hand takes over from the county's. */
 function ybTyped(prefix){
+  ybShowField(prefix, false);
   const el = document.getElementById(prefix + 'YearHint');
   delete el.dataset.src;
   document.getElementById(prefix + 'YearBuilt').dataset.auto = '';
@@ -3553,6 +3592,7 @@ async function ybAuto(prefix){
   if(year){
     yEl.value = year; yEl.dataset.auto = addr;
     hint.dataset.src = 'From the Maricopa County Assessor record.' + (prefix === 'jd' ? ' Tap Save job to keep it.' : '');
+    ybShowField(prefix, true);
   } else {
     if(yEl.dataset.auto){ yEl.value = ''; yEl.dataset.auto = ''; }
     hint.dataset.src = year === null ? 'Couldn’t reach the county record. Type the year in.'
@@ -3577,6 +3617,7 @@ async function ybLookupSaved(name, addr){
     const hint = document.getElementById('jdYearHint');
     hint.dataset.src = 'From the Maricopa County Assessor record.';
     yearBuiltHint('jd');
+    ybShowField('jd', true);
     renderAsbBox('jd');
     renderChecklist();
   }
@@ -3645,6 +3686,7 @@ function renderAsbBox(prefix){
   if(!box) return;
   const y = +cleanYearBuilt(document.getElementById(prefix + 'YearBuilt').value);
   box.innerHTML = TEST_FLAGS.map(f => testCardHtml(prefix, f, y)).join('');
+  if(prefix === 'jd' && currentJob) renderJobStages();   // STAGE PICKER: Abatement follows the year
 }
 
 /* In a job these save at once, like the Checklist they belong to. In
@@ -3757,7 +3799,7 @@ function openNewJob(){
   syncWaterCat('nj');                                                          // WATER CATEGORY
   attachAddressSuggest('njAddress');
   ybWatch('nj', 'njAddress');                   // ASBESTOS FLAG
-  njTests = njTestsBlank(); delete asbOpen['(new)|asbestos']; delete asbOpen['(new)|lead']; ybReset('nj'); yearBuiltHint('nj'); renderAsbBox('nj');
+  njTests = njTestsBlank(); delete asbOpen['(new)|asbestos']; delete asbOpen['(new)|lead']; ybReset('nj'); yearBuiltHint('nj'); ybShowField('nj', false); renderAsbBox('nj');
   openModal('modalNewJob');
 }
 async function createJob(){
@@ -3821,6 +3863,7 @@ function renderShareList(){
   const jobs = shareJobs();
   document.getElementById('slStages').innerHTML = STAGES.filter(s => s.id !== 'complete').map(s => {
     const n = allJobs().filter(j => j.stage === s.id).length;
+    if(!n && s.id === 'abatement') return '';
     return `<button class="chip ${shareStages.includes(s.id) ? 'active' : ''}" onclick="shareToggleStage('${s.id}')">${s.label} ${n}</button>`;
   }).join('');
   document.getElementById('slText').value = shareText();
@@ -5355,6 +5398,7 @@ function renderDashboard(){
   /* Jobs by stage */
   const stages = STAGES.filter(s => s.id !== 'complete').map(s => {
     const n = jobs.filter(x => x.j.stage === s.id).length;
+    if(!n && s.id === 'abatement') return '';   // STAGE PICKER: only when a job is in it
     return `<button class="dash-stage ${dashFilter === 'stage:' + s.id ? 'on' : ''}" onclick="setDashFilter('stage:${s.id}')">
       <span class="n" style="color:${s.color}">${n}</span><span class="l">${s.label}</span></button>`;
   }).join('');
@@ -5609,7 +5653,7 @@ function isTouchDevice(){ return ('ontouchstart' in window) || navigator.maxTouc
    "more readings needed", that belongs in this function. */
 function suggestedReasons(j){
   if(!j || !j.equipCount) return [];
-  return [['demo','estimate','complete'].includes(j.stage) ? 'pickup' : 'monitor'];
+  return [['approvals','demo','estimate','complete'].includes(j.stage) ? 'pickup' : 'monitor'];
 }
 
 function jobByName(name){ return allJobs().find(j => j.name === name) || null; }
@@ -7055,7 +7099,7 @@ async function unassignSelected(){
 /* ---- chrome ---- */
 /* BUILD INFO: change WB_BUILD with every release, so a screenshot of
    Settings shows which version a phone actually loaded. */
-const WB_BUILD = '2026-11-17b';
+const WB_BUILD = '2026-11-17c';
 function renderBuildInfo(){
   const vv = window.visualViewport;
   document.getElementById('buildInfo').innerHTML =
